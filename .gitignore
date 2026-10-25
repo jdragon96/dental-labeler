@@ -1,0 +1,11 @@
+build/
+CMakeUserPresets.json
+.vs/
+.vscode/
+*.user
+
+# 구강 스캔은 환자 데이터일 수 있으므로 저장소에 올리지 않는다 (공개 저장소)
+data/*
+!data/README.md
+*.labels.json
+*.autosave

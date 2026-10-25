@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/skin/default">
+        <file>Default.qss</file>
+        <file>check.svg</file>
+    </qresource>
+</RCC>
