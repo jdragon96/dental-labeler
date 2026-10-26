@@ -34,6 +34,10 @@ public:
     EJaw GetJaw() const;
     void SetJaw(EJaw jaw);
 
+    // 숫자 두 개 · 치식도로 FDI 자리를 고를 때 붙일 클래스. 기본은 치아
+    int GetObjectClass() const;
+    void SetObjectClass(int classValue);
+
 private:
     static size_t GetSettingsSlot(ETool tool);
 
@@ -46,4 +50,5 @@ private:
     float m_fLabelOpacity;
     std::array<PaintSettings, 3> m_arrPaintSettings;
     EJaw m_eJaw;
+    int m_iObjectClass;
 };

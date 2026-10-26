@@ -120,7 +120,7 @@
          <property name="optionGroup" stdset="0">
           <bool>true</bool>
          </property>
-         <layout class="QHBoxLayout" name="layoutQuick">
+         <layout class="QVBoxLayout" name="layoutQuick">
           <property name="spacing">
            <number>6</number>
           </property>
@@ -137,13 +137,61 @@
            <number>8</number>
           </property>
           <item>
-           <widget class="QPushButton" name="buttonGingiva">
-            <property name="text">
-             <string>0 치은</string>
-            </property>
-            <property name="toolTip">
-             <string>치은을 활성 라벨로 (0 또는 G)</string>
-            </property>
+           <layout class="QHBoxLayout" name="layoutClassTitle">
+            <item>
+             <widget class="QLabel" name="labelClassTitle">
+              <property name="text">
+               <string>클래스 · label</string>
+              </property>
+              <property name="muted" stdset="0">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerClassTitle">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>0</width>
+                <height>0</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelClassHint">
+              <property name="text">
+               <string>Alt+0 · 1 · 2</string>
+              </property>
+              <property name="muted" stdset="0">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QWidget" name="classHost" native="true">
+            <layout class="QHBoxLayout" name="layoutClasses">
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+            </layout>
            </widget>
           </item>
           <item>

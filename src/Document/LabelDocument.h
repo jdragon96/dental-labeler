@@ -5,7 +5,6 @@
 #include <QDateTime>
 #include <QString>
 
-#include <array>
 #include <cstdint>
 #include <map>
 #include <set>
@@ -44,6 +43,8 @@ public:
     LabelValue GetLabel(int vertex) const;
     int GetVertexCount() const;
     int GetCount(int label) const;
+    // 정점이 하나라도 있는 코드 (미분류 제외), 작은 코드부터
+    std::vector<int> GetPresentCodes() const;
     int GetLabeledCount() const;
     double GetProgress() const;
 
@@ -52,8 +53,9 @@ public:
     EJaw GetJaw() const;
     void SetJaw(EJaw jaw);
 
-    ToothInfo GetTooth(int label) const;
-    void SetTooth(int label, const ToothInfo& info);
+    // 치아 상태 · 메모는 FDI 자리(11–48)마다 둔다
+    ToothInfo GetTooth(int fdi) const;
+    void SetTooth(int fdi, const ToothInfo& info);
     const std::map<int, ToothInfo>& GetTeeth() const;
 
     // 작업 중 보조 상태 (파일에 저장하지 않는다)
@@ -79,7 +81,8 @@ private:
 
 private:
     std::vector<LabelValue> m_vecLabels;
-    std::array<int, 50> m_arrCounts;
+    // 코드 -1 … 999 마다 정점 수
+    std::vector<int> m_vecCounts;
     SourceInfo m_source;
     EJaw m_eJaw;
     std::map<int, ToothInfo> m_mapTeeth;

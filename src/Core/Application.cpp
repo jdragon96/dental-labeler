@@ -115,7 +115,7 @@ void Application::RunDemoStrokes()
     const int iHeight = pViewport->height();
     for (const auto& stroke : arrStrokes)
     {
-        m_upWorkspacePresenter->SelectLabel(stroke.iLabel);
+        m_upWorkspacePresenter->SelectFdi(stroke.iLabel);
         const int iY = static_cast<int>(iHeight * stroke.dY);
         const QPoint ptStart(static_cast<int>(iWidth * 0.15), iY);
         QMouseEvent press(QEvent::MouseButtonPress, ptStart, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);

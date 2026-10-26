@@ -55,12 +55,17 @@ public:
     void ApplyLasso(const std::vector<QPointF>& vecPolygon, const QMatrix4x4& viewProjection, const QSize& viewport,
                     const QVector3D& camera, bool erase);
 
+    // 라벨 코드로 고른다 (목록 · 최근 라벨 · 스포이드)
     void SelectLabel(int label);
+    // FDI 자리로 고른다 (숫자 두 개 · 치식도). 지금 클래스(치아 · 스캔바디 …)를 붙인다. 0 은 치은
+    void SelectFdi(int fdi);
+    // 클래스를 바꾼다. 치은처럼 자리가 없는 클래스는 바로 그 라벨을 고른다
+    void SelectClass(int classValue);
     void SelectAdjacentTooth(int step);
     void PickLabelFromVertex(int vertex);
 
-    void SetToothState(int label, EToothState state);
-    void SetToothNote(int label, const QString& note);
+    void SetToothState(int fdi, EToothState state);
+    void SetToothNote(int fdi, const QString& note);
     void ClearLabelVertices(int label);
     void ToggleLocked(int label);
     void ToggleHidden(int label);

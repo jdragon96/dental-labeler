@@ -84,13 +84,14 @@ void main()
 }
 )";
 
-std::array<std::array<unsigned char, 4>, 50> BuildPalette()
+// 라벨 코드 -1 … 999 마다 RGBA. 미분류 · 쓰지 않는 코드는 알파 0 (원래 셰이딩)
+std::vector<std::array<unsigned char, 4>> BuildPalette()
 {
-    std::array<std::array<unsigned char, 4>, 50> arrPalette = {};
-    for (int iLabel = -1; iLabel <= 48; ++iLabel)
+    std::vector<std::array<unsigned char, 4>> vecPalette(static_cast<size_t>(LabelTable::kCodeSlotCount));
+    for (int iLabel = -1; iLabel < LabelTable::kCodeSlotCount - 1; ++iLabel)
     {
-        std::array<unsigned char, 4>& arrColor = arrPalette[static_cast<size_t>(iLabel + 1)];
-        if (!LabelTable::IsValidLabel(iLabel) || iLabel == kUnlabeled)
+        std::array<unsigned char, 4>& arrColor = vecPalette[static_cast<size_t>(iLabel + 1)];
+        if (!LabelTable::IsValidCode(iLabel) || iLabel == kUnlabeled)
         {
             arrColor = { 0, 0, 0, 0 };
             continue;
@@ -99,7 +100,7 @@ std::array<std::array<unsigned char, 4>, 50> BuildPalette()
         arrColor = { static_cast<unsigned char>(colLabel.red()), static_cast<unsigned char>(colLabel.green()),
                      static_cast<unsigned char>(colLabel.blue()), 255 };
     }
-    return arrPalette;
+    return vecPalette;
 }
 }
 
@@ -549,7 +550,7 @@ void Viewport3DWidget::OnLabelStateChanged()
 
 void Viewport3DWidget::OnActiveLabelChanged(int label)
 {
-    m_strFlashText = QStringLiteral("%1 · %2").arg(label).arg(LabelTable::GetName(label));
+    m_strFlashText = QStringLiteral("%1 · %2").arg(LabelTable::GetShortText(label), LabelTable::GetName(label));
     m_timerFlash.start();
     update();
 }
@@ -680,7 +681,7 @@ void Viewport3DWidget::UploadColors()
     {
         return;
     }
-    static const std::array<std::array<unsigned char, 4>, 50> arrPalette = BuildPalette();
+    static const std::vector<std::array<unsigned char, 4>> vecPalette = BuildPalette();
     const std::vector<LabelValue>& vecLabels = kpCase->m_document.GetLabels();
     if (m_vecColorBytes.size() != vecLabels.size() * 4)
     {
@@ -688,7 +689,7 @@ void Viewport3DWidget::UploadColors()
     }
     for (size_t i = 0; i < vecLabels.size(); ++i)
     {
-        const std::array<unsigned char, 4>& arrColor = arrPalette[static_cast<size_t>(vecLabels[i] + 1)];
+        const std::array<unsigned char, 4>& arrColor = vecPalette[static_cast<size_t>(vecLabels[i] + 1)];
         std::copy(arrColor.begin(), arrColor.end(), m_vecColorBytes.begin() + static_cast<long>(i * 4));
     }
     m_bufColors.bind();
@@ -939,7 +940,7 @@ void Viewport3DWidget::DrawOverlay(QPainter& painter)
     {
         const QString strTip = QStringLiteral("정점 #%L1 · %2 %3 · 곡률 %4")
                                    .arg(m_hoverPick.m_iVertex)
-                                   .arg(m_hoverPick.m_label == kUnlabeled ? QString() : QString::number(m_hoverPick.m_label))
+                                   .arg(m_hoverPick.m_label == kUnlabeled ? QString() : LabelTable::GetShortText(m_hoverPick.m_label))
                                    .arg(LabelTable::GetName(m_hoverPick.m_label))
                                    .arg(static_cast<double>(m_hoverPick.m_fCurvature), 0, 'f', 2);
         const int iTextWidth = painter.fontMetrics().horizontalAdvance(strTip) + 18;

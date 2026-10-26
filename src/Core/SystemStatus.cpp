@@ -1,5 +1,6 @@
 #include "Core/SystemStatus.h"
 
+#include "Core/LabelTable.h"
 #include "Core/Observers.h"
 
 #include <algorithm>
@@ -21,6 +22,7 @@ SystemStatus::SystemStatus(Observers* kpObservers)
     , m_fLabelOpacity(0.7f)
     , m_arrPaintSettings()
     , m_eJaw(EJaw::UNKNOWN)
+    , m_iObjectClass(LabelTable::kClassTooth)
 {
     // 채우기는 연결된 같은 라벨 전체를 바꾸므로, 치은 전체가 한 번에 치아로 바뀌지 않게 미분류만 바꾸는 것이 기본이다
     m_arrPaintSettings[kSlotFill].m_eOverwrite = EOverwriteRule::UNLABELED_ONLY;
@@ -46,7 +48,29 @@ void SystemStatus::SetActiveLabel(int label)
     }
 
     m_iActiveLabel = label;
+    // 치아 · 스캔바디처럼 자리를 갖는 클래스를 고르면 다음 번호 입력도 그 클래스로 한다
+    const int iClass = LabelTable::GetClassOf(label);
+    const LabelTable::ClassInfo* kpClass = LabelTable::FindClass(iClass);
+    if (kpClass != nullptr && kpClass->m_eFdiUse != LabelTable::EFdiUse::NONE)
+    {
+        SetObjectClass(iClass);
+    }
     emit m_kpObservers->ActiveLabelChanged(label);
+}
+
+int SystemStatus::GetObjectClass() const
+{
+    return m_iObjectClass;
+}
+
+void SystemStatus::SetObjectClass(int classValue)
+{
+    if (m_iObjectClass == classValue)
+    {
+        return;
+    }
+    m_iObjectClass = classValue;
+    emit m_kpObservers->ObjectClassChanged(classValue);
 }
 
 const std::vector<int>& SystemStatus::GetRecentLabels() const

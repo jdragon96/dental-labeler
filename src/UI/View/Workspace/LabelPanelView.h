@@ -4,6 +4,7 @@
 
 #include <QHash>
 #include <QTimer>
+#include <QVector>
 #include <QWidget>
 
 #include <memory>
@@ -31,19 +32,20 @@ public:
     ~LabelPanelView() override;
 
 public:
-    // 결손으로 바꿀 때 정점이 있으면 먼저 묻는다
-    void ChangeToothState(int label, EToothState state);
+    // FDI 자리의 상태를 바꾼다. 결손으로 바꿀 때 그 자리 치아에 정점이 있으면 먼저 묻는다
+    void ChangeToothState(int fdi, EToothState state);
 
 private:
     void RebuildTree();
     void ScheduleRefresh();
     void RefreshLabels();
+    void RefreshClassButtons();
     void RefreshAttributes();
     void RefreshHistory();
     void OnTreeItemClicked(QTreeWidgetItem* pItem, int column);
     void OnTreeItemDoubleClicked(QTreeWidgetItem* pItem, int column);
     void OnStateClicked(int state);
-    void OnToothContextMenu(int label, const QPoint& globalPos);
+    void OnToothContextMenu(int fdi, const QPoint& globalPos);
 
 private:
     std::unique_ptr<Ui::LabelPanelView> ui;
@@ -52,7 +54,10 @@ private:
     WorkspacePresenter* m_kpPresenter;
     OdontogramWidget* m_pOdontogram;
     QButtonGroup* m_pStateGroup;
+    QButtonGroup* m_pClassGroup;
     QHash<int, QTreeWidgetItem*> m_hashItems;
+    // 지금 목록에 있는 라벨 코드 (바뀌면 목록을 다시 만든다)
+    QVector<int> m_vecRowCodes;
     QTimer m_timerRefresh;
     bool m_bUpdating;
 };

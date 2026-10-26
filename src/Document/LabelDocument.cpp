@@ -6,7 +6,7 @@
 
 LabelDocument::LabelDocument()
     : m_vecLabels()
-    , m_arrCounts()
+    , m_vecCounts(static_cast<size_t>(LabelTable::kCodeSlotCount), 0)
     , m_source()
     , m_eJaw(EJaw::UNKNOWN)
     , m_mapTeeth()
@@ -16,7 +16,6 @@ LabelDocument::LabelDocument()
     , m_strAssignee()
     , m_dtUpdatedAt()
 {
-    m_arrCounts.fill(0);
 }
 
 void LabelDocument::Reset(const SourceInfo& source, EJaw jaw)
@@ -36,7 +35,7 @@ bool LabelDocument::SetLabels(std::vector<LabelValue>&& vecLabels)
 {
     for (LabelValue value : vecLabels)
     {
-        if (!LabelTable::IsValidLabel(value))
+        if (!LabelTable::IsValidCode(value))
         {
             return false;
         }
@@ -80,11 +79,11 @@ int LabelDocument::GetVertexCount() const
 
 int LabelDocument::GetCount(int label) const
 {
-    if (!LabelTable::IsValidLabel(label))
+    if (!LabelTable::IsValidCode(label))
     {
         return 0;
     }
-    return m_arrCounts[GetCountSlot(label)];
+    return m_vecCounts[GetCountSlot(label)];
 }
 
 int LabelDocument::GetLabeledCount() const
@@ -227,8 +226,21 @@ void LabelDocument::SetUpdatedAt(const QDateTime& updatedAt)
 
 size_t LabelDocument::GetCountSlot(int label)
 {
-    // -1 … 48 을 0 … 49 칸에 둔다
+    // 코드 -1 … 999 를 0 … 1000 칸에 둔다
     return static_cast<size_t>(label + 1);
+}
+
+std::vector<int> LabelDocument::GetPresentCodes() const
+{
+    std::vector<int> vecCodes;
+    for (size_t i = 1; i < m_vecCounts.size(); ++i)
+    {
+        if (m_vecCounts[i] > 0)
+        {
+            vecCodes.push_back(static_cast<int>(i) - 1);
+        }
+    }
+    return vecCodes;
 }
 
 void LabelDocument::SetOne(std::uint32_t vertex, LabelValue value)
@@ -238,16 +250,16 @@ void LabelDocument::SetOne(std::uint32_t vertex, LabelValue value)
     {
         return;
     }
-    --m_arrCounts[GetCountSlot(current)];
-    ++m_arrCounts[GetCountSlot(value)];
+    --m_vecCounts[GetCountSlot(current)];
+    ++m_vecCounts[GetCountSlot(value)];
     current = value;
 }
 
 void LabelDocument::RecountAll()
 {
-    m_arrCounts.fill(0);
+    std::fill(m_vecCounts.begin(), m_vecCounts.end(), 0);
     for (LabelValue value : m_vecLabels)
     {
-        ++m_arrCounts[GetCountSlot(value)];
+        ++m_vecCounts[GetCountSlot(value)];
     }
 }

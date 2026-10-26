@@ -5,12 +5,14 @@
 #include <QByteArray>
 #include <QFile>
 #include <QStringList>
+#include <QtEndian>
 #include <QtGlobal>
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <vector>
 
 namespace
@@ -401,7 +403,92 @@ bool SkipProperty(BodyReader& reader, const PlyProperty& property)
     return true;
 }
 
-bool ReadVertices(BodyReader& reader, const PlyElement& element, Mesh& mesh, QString& strError)
+const char* GetTypeName(EPlyType type)
+{
+    switch (type)
+    {
+    case EPlyType::INT8:
+        return "char";
+    case EPlyType::UINT8:
+        return "uchar";
+    case EPlyType::INT16:
+        return "short";
+    case EPlyType::UINT16:
+        return "ushort";
+    case EPlyType::INT32:
+        return "int";
+    case EPlyType::UINT32:
+        return "uint";
+    case EPlyType::FLOAT32:
+        return "float";
+    case EPlyType::FLOAT64:
+        return "double";
+    case EPlyType::INVALID:
+        break;
+    }
+    return "";
+}
+
+// 읽은 값을 원래 형식의 리틀 엔디언 바이트로 되돌린다. 정수 · float 는 double 을 거쳐도 값이 바뀌지 않는다
+void EncodeValue(EPlyType type, double value, unsigned char* pOut)
+{
+    switch (type)
+    {
+    case EPlyType::INT8:
+        qToLittleEndian(static_cast<qint8>(value), pOut);
+        return;
+    case EPlyType::UINT8:
+        qToLittleEndian(static_cast<quint8>(value), pOut);
+        return;
+    case EPlyType::INT16:
+        qToLittleEndian(static_cast<qint16>(value), pOut);
+        return;
+    case EPlyType::UINT16:
+        qToLittleEndian(static_cast<quint16>(value), pOut);
+        return;
+    case EPlyType::INT32:
+        qToLittleEndian(static_cast<qint32>(value), pOut);
+        return;
+    case EPlyType::UINT32:
+        qToLittleEndian(static_cast<quint32>(value), pOut);
+        return;
+    case EPlyType::FLOAT32:
+    {
+        const float fValue = static_cast<float>(value);
+        quint32 uBits = 0;
+        std::memcpy(&uBits, &fValue, sizeof(uBits));
+        qToLittleEndian(uBits, pOut);
+        return;
+    }
+    case EPlyType::FLOAT64:
+    {
+        quint64 uBits = 0;
+        std::memcpy(&uBits, &value, sizeof(uBits));
+        qToLittleEndian(uBits, pOut);
+        return;
+    }
+    case EPlyType::INVALID:
+        break;
+    }
+}
+
+// 라벨 필드 이름 (fdi · label · instance). CloudCompare 가 붙이는 scalar_ 접두어도 같은 필드로 본다
+QByteArray GetLabelFieldName(const QByteArray& propertyName)
+{
+    static const QByteArray arrNames[] = { "fdi", "label", "instance" };
+    const QByteArray strName = propertyName.startsWith("scalar_") ? propertyName.mid(7) : propertyName;
+    for (const QByteArray& strField : arrNames)
+    {
+        if (strName == strField)
+        {
+            return strField;
+        }
+    }
+    return QByteArray();
+}
+
+bool ReadVertices(BodyReader& reader, const PlyElement& element, Mesh& mesh,
+                  std::map<QByteArray, std::vector<int>>& mapFields, QString& strError)
 {
     const int iX = FindProperty(element, "x");
     const int iY = FindProperty(element, "y");
@@ -428,7 +515,35 @@ bool ReadVertices(BodyReader& reader, const PlyElement& element, Mesh& mesh, QSt
         mesh.m_vecNormals.resize(iCount * 3);
     }
 
+    // 라벨 필드는 문서로 따로 읽고, 나머지 스칼라 속성은 라벨 PLY 에 그대로 옮겨 적도록 원래 형식으로 담는다
     const int iPropertyCount = static_cast<int>(element.m_vecProperties.size());
+    std::vector<int> vecColumnOf(static_cast<size_t>(iPropertyCount), -1);
+    std::vector<std::vector<int>*> vecFieldOf(static_cast<size_t>(iPropertyCount), nullptr);
+    mesh.m_vecSourceColumns.clear();
+    for (int iProperty = 0; iProperty < iPropertyCount; ++iProperty)
+    {
+        const PlyProperty& property = element.m_vecProperties[static_cast<size_t>(iProperty)];
+        if (property.m_bList)
+        {
+            continue;
+        }
+        const QByteArray strField = GetLabelFieldName(property.m_strName);
+        if (!strField.isEmpty())
+        {
+            std::vector<int>& vecField = mapFields[strField];
+            vecField.assign(iCount, 0);
+            vecFieldOf[static_cast<size_t>(iProperty)] = &vecField;
+            continue;
+        }
+        VertexColumn column;
+        column.m_strName = property.m_strName;
+        column.m_strType = GetTypeName(property.m_eType);
+        column.m_iSize = GetTypeSize(property.m_eType);
+        column.m_vecData.resize(iCount * static_cast<size_t>(column.m_iSize));
+        vecColumnOf[static_cast<size_t>(iProperty)] = static_cast<int>(mesh.m_vecSourceColumns.size());
+        mesh.m_vecSourceColumns.push_back(std::move(column));
+    }
+
     for (size_t iVertex = 0; iVertex < iCount; ++iVertex)
     {
         for (int iProperty = 0; iProperty < iPropertyCount; ++iProperty)
@@ -450,6 +565,18 @@ bool ReadVertices(BodyReader& reader, const PlyElement& element, Mesh& mesh, QSt
                 strError = QStringLiteral("정점 목록이 %L1번째 정점에서 끊겼다.").arg(iVertex + 1);
                 return false;
             }
+            const int iColumn = vecColumnOf[static_cast<size_t>(iProperty)];
+            if (iColumn >= 0)
+            {
+                VertexColumn& column = mesh.m_vecSourceColumns[static_cast<size_t>(iColumn)];
+                EncodeValue(property.m_eType, dValue, column.m_vecData.data() + iVertex * static_cast<size_t>(column.m_iSize));
+            }
+            else if (std::vector<int>* pField = vecFieldOf[static_cast<size_t>(iProperty)])
+            {
+                (*pField)[iVertex] = static_cast<int>(dValue);
+                continue;
+            }
+
             const float fValue = static_cast<float>(dValue);
             if (iProperty == iX)
             {
@@ -571,14 +698,16 @@ bool SkipElement(BodyReader& reader, const PlyElement& element, QString& strErro
 
 PlyReader::PlyReader()
     : m_strError()
-    , m_strComment()
+    , m_lstComments()
+    , m_mapFields()
 {
 }
 
 bool PlyReader::Read(const QString& path, Mesh& mesh)
 {
     m_strError.clear();
-    m_strComment.clear();
+    m_lstComments.clear();
+    m_mapFields.clear();
     mesh = Mesh();
 
     QFile file(path);
@@ -613,7 +742,7 @@ bool PlyReader::Read(const QString& path, Mesh& mesh)
     {
         return false;
     }
-    m_strComment = header.m_lstComments.join(QStringLiteral("; "));
+    m_lstComments = header.m_lstComments;
 
     BodyReader reader(kpBegin + header.m_llBodyOffset, kpEnd, header.m_eFormat);
     bool bHasVertices = false;
@@ -622,7 +751,7 @@ bool PlyReader::Read(const QString& path, Mesh& mesh)
         bool bOk = true;
         if (element.m_strName == "vertex")
         {
-            bOk = ReadVertices(reader, element, mesh, m_strError);
+            bOk = ReadVertices(reader, element, mesh, m_mapFields, m_strError);
             bHasVertices = true;
         }
         else if (element.m_strName == "face")
@@ -672,7 +801,24 @@ const QString& PlyReader::GetError() const
     return m_strError;
 }
 
-const QString& PlyReader::GetComment() const
+QString PlyReader::GetComment() const
 {
-    return m_strComment;
+    return m_lstComments.join(QStringLiteral("; "));
+}
+
+const QStringList& PlyReader::GetComments() const
+{
+    return m_lstComments;
+}
+
+bool PlyReader::HasField(const QByteArray& name) const
+{
+    return m_mapFields.count(name) > 0;
+}
+
+const std::vector<int>& PlyReader::GetField(const QByteArray& name) const
+{
+    static const std::vector<int> vecEmpty;
+    auto it = m_mapFields.find(name);
+    return it == m_mapFields.end() ? vecEmpty : it->second;
 }

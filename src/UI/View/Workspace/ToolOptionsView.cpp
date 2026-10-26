@@ -158,9 +158,11 @@ void ToolOptionsView::RefreshActiveLabel()
 {
     const int iLabel = m_kpSystem->GetActiveLabel();
     const QColor colLabel = LabelTable::GetColor(iLabel);
-    ui->labelActiveSwatch->setText(QString::number(iLabel));
-    ui->labelActiveSwatch->setStyleSheet(QStringLiteral("background:%1;color:#10161C;border-radius:8px;font-weight:600;font-size:15px;")
-                                             .arg(colLabel.name()));
+    const QString strShort = LabelTable::GetShortText(iLabel);
+    ui->labelActiveSwatch->setText(strShort);
+    ui->labelActiveSwatch->setStyleSheet(QStringLiteral("background:%1;color:#10161C;border-radius:8px;font-weight:600;font-size:%2px;")
+                                             .arg(colLabel.name())
+                                             .arg(strShort.size() > 2 ? 11 : 15));
     ui->labelActiveName->setText(LabelTable::GetName(iLabel));
 
     const std::vector<int>& vecRecent = m_kpSystem->GetRecentLabels();
@@ -176,7 +178,7 @@ void ToolOptionsView::RefreshActiveLabel()
         QPixmap pixmap(10, 10);
         pixmap.fill(LabelTable::GetColor(iRecent));
         pButton->setIcon(QIcon(pixmap));
-        pButton->setText(QString::number(iRecent));
+        pButton->setText(LabelTable::GetShortText(iRecent));
         pButton->setToolTip(LabelTable::GetName(iRecent));
         pButton->setProperty("label", iRecent);
         pButton->show();

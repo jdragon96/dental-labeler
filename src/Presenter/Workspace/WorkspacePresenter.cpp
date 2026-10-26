@@ -28,7 +28,7 @@ QString GetLabelText(int label)
     {
         return QStringLiteral("치은");
     }
-    return QString::number(label);
+    return LabelTable::GetShortText(label);
 }
 }
 
@@ -102,9 +102,15 @@ bool WorkspacePresenter::Save()
         document.SetStatus(QStringLiteral("in_progress"));
     }
 
-    const QString strPath = LabelFile::GetLabelPath(m_spCase->m_strMeshPath);
+    // 원본 스캔에는 절대 쓰지 않는다. 원본 없이 라벨 파일만 연 경우에만 연 파일 자체에 쓴다
+    const QString strPath = m_spCase->m_strLabeledPath;
+    if (!m_spCase->m_bStandalone && QFileInfo(strPath) == QFileInfo(m_spCase->m_strMeshPath))
+    {
+        emit SaveFailed(QStringLiteral("저장할 곳이 원본 파일과 같아 저장하지 않았다: %1").arg(strPath));
+        return false;
+    }
     QString strError;
-    if (!LabelFile::Save(strPath, document, strError))
+    if (!LabelFile::Save(strPath, m_spCase->m_mesh, m_spCase->m_lstSourceComments, document, strError))
     {
         emit SaveFailed(strError);
         return false;
@@ -113,7 +119,7 @@ bool WorkspacePresenter::Save()
     m_llSavedStateId = m_upHistory->GetStateId();
     m_llAutosavedStateId = m_llSavedStateId;
     m_bMetaDirty = false;
-    QFile::remove(LabelFile::GetAutosavePath(m_spCase->m_strMeshPath));
+    QFile::remove(m_spCase->m_strAutosavePath);
     NotifyDirty();
     emit Saved(strPath);
     return true;
@@ -161,7 +167,7 @@ void WorkspacePresenter::ResolveRecovery(bool restore)
     }
     else
     {
-        QFile::remove(LabelFile::GetAutosavePath(m_spCase->m_strMeshPath));
+        QFile::remove(m_spCase->m_strAutosavePath);
         emit Message(QStringLiteral("자동 저장본을 버렸다."));
     }
 
@@ -427,20 +433,63 @@ void WorkspacePresenter::ApplyLasso(const std::vector<QPointF>& vecPolygon, cons
 
 void WorkspacePresenter::SelectLabel(int label)
 {
-    if (!LabelTable::IsValidLabel(label) || label == kUnlabeled)
+    if (!LabelTable::IsValidCode(label) || label == kUnlabeled)
     {
-        emit Message(QStringLiteral("%1 은 없는 번호다.").arg(label));
+        emit Message(QStringLiteral("쓸 수 없는 라벨 값이다: %1").arg(label));
         return;
     }
+    const int iFdi = LabelTable::GetFdiOf(label);
     const EJaw eJaw = m_kpSystem->GetJaw();
-    if (LabelTable::IsTooth(label) && eJaw != EJaw::UNKNOWN && LabelTable::GetJaw(label) != eJaw)
+    if (LabelTable::IsFdi(iFdi) && eJaw != EJaw::UNKNOWN && LabelTable::GetJawOfFdi(iFdi) != eJaw)
     {
         emit Message(QStringLiteral("%1 케이스에서는 %2 을 고를 수 없다.")
                          .arg(LabelTable::GetJawName(eJaw))
-                         .arg(label));
+                         .arg(iFdi));
         return;
     }
     m_kpSystem->SetActiveLabel(label);
+}
+
+void WorkspacePresenter::SelectFdi(int fdi)
+{
+    if (fdi == 0)
+    {
+        SelectLabel(kGingiva);
+        return;
+    }
+    if (!LabelTable::IsFdi(fdi))
+    {
+        emit Message(QStringLiteral("%1 은 없는 치아 번호다.").arg(fdi));
+        return;
+    }
+    SelectLabel(LabelTable::MakeCode(m_kpSystem->GetObjectClass(), fdi));
+}
+
+void WorkspacePresenter::SelectClass(int classValue)
+{
+    const LabelTable::ClassInfo* kpClass = LabelTable::FindClass(classValue);
+    if (kpClass == nullptr)
+    {
+        return;
+    }
+    if (kpClass->m_eFdiUse == LabelTable::EFdiUse::NONE)
+    {
+        SelectLabel(LabelTable::MakeCode(classValue, 0));
+        return;
+    }
+
+    // 지금 고른 자리를 새 클래스로 옮긴다. 자리가 없으면 다음 번호 입력부터 그 클래스로 고른다
+    m_kpSystem->SetObjectClass(classValue);
+    const int iFdi = LabelTable::GetFdiOf(m_kpSystem->GetActiveLabel());
+    if (LabelTable::IsFdi(iFdi))
+    {
+        SelectLabel(LabelTable::MakeCode(classValue, iFdi));
+    }
+    else if (kpClass->m_eFdiUse == LabelTable::EFdiUse::ALLOWED)
+    {
+        SelectLabel(LabelTable::MakeCode(classValue, 0));
+    }
+    emit Message(QStringLiteral("클래스: %1. 숫자 두 개로 자리를 고른다.").arg(LabelTable::GetClassName(classValue)));
 }
 
 void WorkspacePresenter::SelectAdjacentTooth(int step)
@@ -450,17 +499,20 @@ void WorkspacePresenter::SelectAdjacentTooth(int step)
     {
         return;
     }
+    const int iClass = m_kpSystem->GetObjectClass();
     const int iCount = static_cast<int>(vecOrder.size());
-    auto it = std::find(vecOrder.begin(), vecOrder.end(), m_kpSystem->GetActiveLabel());
+    auto it = std::find(vecOrder.begin(), vecOrder.end(), LabelTable::GetFdiOf(m_kpSystem->GetActiveLabel()));
     int iIndex = it == vecOrder.end() ? (step > 0 ? -1 : iCount) : static_cast<int>(it - vecOrder.begin());
     for (int iTry = 0; iTry < iCount; ++iTry)
     {
         iIndex = (iIndex + step + iCount) % iCount;
-        const int iLabel = vecOrder[static_cast<size_t>(iIndex)];
-        const bool bMissing = m_spCase && m_spCase->m_document.GetTooth(iLabel).m_eState == EToothState::MISSING;
+        const int iFdi = vecOrder[static_cast<size_t>(iIndex)];
+        // 치아는 결손 자리를 건너뛴다
+        const bool bMissing = iClass == LabelTable::kClassTooth && m_spCase
+                              && m_spCase->m_document.GetTooth(iFdi).m_eState == EToothState::MISSING;
         if (!bMissing)
         {
-            m_kpSystem->SetActiveLabel(iLabel);
+            m_kpSystem->SetActiveLabel(LabelTable::MakeCode(iClass, iFdi));
             return;
         }
     }
@@ -481,37 +533,37 @@ void WorkspacePresenter::PickLabelFromVertex(int vertex)
     SelectLabel(label);
 }
 
-void WorkspacePresenter::SetToothState(int label, EToothState state)
+void WorkspacePresenter::SetToothState(int fdi, EToothState state)
 {
-    if (!m_spCase || !LabelTable::IsTooth(label))
+    if (!m_spCase || !LabelTable::IsFdi(fdi))
     {
         return;
     }
-    ToothInfo info = m_spCase->m_document.GetTooth(label);
+    ToothInfo info = m_spCase->m_document.GetTooth(fdi);
     if (info.m_eState == state)
     {
         return;
     }
     info.m_eState = state;
-    m_spCase->m_document.SetTooth(label, info);
+    m_spCase->m_document.SetTooth(fdi, info);
     m_bMetaDirty = true;
     emit LabelStateChanged();
     NotifyDirty();
 }
 
-void WorkspacePresenter::SetToothNote(int label, const QString& note)
+void WorkspacePresenter::SetToothNote(int fdi, const QString& note)
 {
-    if (!m_spCase || !LabelTable::IsTooth(label))
+    if (!m_spCase || !LabelTable::IsFdi(fdi))
     {
         return;
     }
-    ToothInfo info = m_spCase->m_document.GetTooth(label);
+    ToothInfo info = m_spCase->m_document.GetTooth(fdi);
     if (info.m_strNote == note)
     {
         return;
     }
     info.m_strNote = note;
-    m_spCase->m_document.SetTooth(label, info);
+    m_spCase->m_document.SetTooth(fdi, info);
     m_bMetaDirty = true;
     NotifyDirty();
 }
@@ -579,9 +631,8 @@ void WorkspacePresenter::IsolateLabel(int label)
         return;
     }
     LabelDocument& document = m_spCase->m_document;
-    std::vector<int> vecOthers = { kUnlabeled, kGingiva };
-    const std::vector<int>& vecTeeth = LabelTable::GetArchOrder(EJaw::UNKNOWN);
-    vecOthers.insert(vecOthers.end(), vecTeeth.begin(), vecTeeth.end());
+    std::vector<int> vecOthers = document.GetPresentCodes();
+    vecOthers.push_back(kUnlabeled);
 
     bool bAlreadyIsolated = !document.IsHidden(label);
     for (int iOther : vecOthers)
@@ -633,12 +684,29 @@ QString WorkspacePresenter::GetCaseId() const
 
 QVector<LabelRowData> WorkspacePresenter::GetLabelRows() const
 {
+    // 치은 · 미분류, 열린 턱의 치아 16개, 그 밖에 정점이 있거나 지금 고른 다른 클래스 대상 (스캔바디 …)
     QVector<LabelRowData> vecRows;
     vecRows.append(GetLabelRow(kGingiva));
     vecRows.append(GetLabelRow(kUnlabeled));
-    for (int iLabel : LabelTable::GetArchOrder(m_kpSystem->GetJaw()))
+    for (int iFdi : LabelTable::GetArchOrder(m_kpSystem->GetJaw()))
     {
-        vecRows.append(GetLabelRow(iLabel));
+        vecRows.append(GetLabelRow(LabelTable::MakeCode(LabelTable::kClassTooth, iFdi)));
+    }
+
+    std::vector<int> vecOthers;
+    if (m_spCase)
+    {
+        vecOthers = m_spCase->m_document.GetPresentCodes();
+    }
+    vecOthers.push_back(m_kpSystem->GetActiveLabel());
+    std::sort(vecOthers.begin(), vecOthers.end());
+    vecOthers.erase(std::unique(vecOthers.begin(), vecOthers.end()), vecOthers.end());
+    for (int iCode : vecOthers)
+    {
+        if (LabelTable::GetClassOf(iCode) > LabelTable::kClassTooth)
+        {
+            vecRows.append(GetLabelRow(iCode));
+        }
     }
     return vecRows;
 }
@@ -647,12 +715,30 @@ LabelRowData WorkspacePresenter::GetLabelRow(int label) const
 {
     LabelRowData row;
     row.m_iLabel = label;
-    row.m_strName = LabelTable::IsTooth(label) ? LabelTable::GetToothTypeName(label) : LabelTable::GetName(label);
+    const int iClass = LabelTable::GetClassOf(label);
+    const int iFdi = LabelTable::GetFdiOf(label);
+    if (iClass == LabelTable::kClassTooth)
+    {
+        row.m_strName = LabelTable::GetFdiTypeName(iFdi);
+    }
+    else if (iClass > LabelTable::kClassTooth)
+    {
+        row.m_strName = LabelTable::GetClassName(iClass);
+        if (LabelTable::IsFdi(iFdi))
+        {
+            row.m_strName += QStringLiteral(" · %1 자리").arg(iFdi);
+        }
+    }
+    else
+    {
+        row.m_strName = LabelTable::GetName(label);
+    }
     if (m_spCase)
     {
         const LabelDocument& document = m_spCase->m_document;
         row.m_iCount = document.GetCount(label);
-        const ToothInfo info = document.GetTooth(label);
+        // 치아 상태는 FDI 자리마다 있다 (치아 · 스캔바디가 같은 자리면 같은 상태를 본다)
+        const ToothInfo info = LabelTable::IsFdi(iFdi) ? document.GetTooth(iFdi) : ToothInfo();
         row.m_eState = info.m_eState;
         row.m_strNote = info.m_strNote;
         row.m_bLocked = document.IsLocked(label);
@@ -748,14 +834,14 @@ void WorkspacePresenter::OnLoadFinished(bool success)
     m_upHistory->Clear();
     m_llSavedStateId = m_upHistory->GetStateId();
     m_llAutosavedStateId = m_llSavedStateId;
-    m_bMetaDirty = false;
+    m_bMetaDirty = m_spCase->m_bNeedsSave;
     m_bStrokeActive = false;
     m_hashStrokeBefore.clear();
     m_dtLastAutosave = QDateTime();
 
     m_kpSystem->SetJaw(m_spCase->m_eJaw);
     const int iActive = m_kpSystem->GetActiveLabel();
-    if (LabelTable::IsTooth(iActive) && m_spCase->m_eJaw != EJaw::UNKNOWN && LabelTable::GetJaw(iActive) != m_spCase->m_eJaw)
+    if (LabelTable::IsFdi(LabelTable::GetFdiOf(iActive)) && m_spCase->m_eJaw != EJaw::UNKNOWN && LabelTable::GetJaw(iActive) != m_spCase->m_eJaw)
     {
         m_kpSystem->SetActiveLabel(kGingiva);
     }
@@ -766,6 +852,10 @@ void WorkspacePresenter::OnLoadFinished(bool success)
     emit HistoryChanged();
     NotifyDirty();
 
+    if (!m_spCase->m_strLoadNotice.isEmpty())
+    {
+        emit Message(m_spCase->m_strLoadNotice);
+    }
     if (m_spCase->m_upRecovery)
     {
         emit RecoveryAvailable(m_spCase->m_dtRecovery, m_spCase->m_iRecoveryEditCount);
@@ -783,15 +873,15 @@ void WorkspacePresenter::OnAutosaveTimer()
         return;
     }
 
-    // 라벨 배열을 복사해 백그라운드에서 쓴다. 작업은 멈추지 않는다
+    // 라벨 배열을 복사해 백그라운드에서 쓴다. 메시는 열린 뒤 바뀌지 않으므로 케이스를 붙잡아 두고 같이 읽는다
     LabelDocument snapshot = m_spCase->m_document;
     snapshot.SetUpdatedAt(QDateTime::currentDateTime());
-    const QString strPath = LabelFile::GetAutosavePath(m_spCase->m_strMeshPath);
+    const std::shared_ptr<const CaseData> spCase = m_spCase;
     const int iEditCount = GetUnsavedEditCount();
     m_llAutosavedStateId = m_upHistory->GetStateId();
-    m_watcherAutosave.setFuture(QtConcurrent::run([snapshot, strPath, iEditCount]() {
+    m_watcherAutosave.setFuture(QtConcurrent::run([spCase, snapshot, iEditCount]() {
         QString strError;
-        LabelFile::Save(strPath, snapshot, strError, iEditCount);
+        LabelFile::Save(spCase->m_strAutosavePath, spCase->m_mesh, spCase->m_lstSourceComments, snapshot, strError, iEditCount);
         return strError;
     }));
 }

@@ -103,7 +103,7 @@ MainWindow::MainWindow(Observers* kpObservers, SystemStatus* kpSystem, Workspace
 
     m_pKeyInput = new LabelKeyInput(this);
     qApp->installEventFilter(m_pKeyInput);
-    connect(m_pKeyInput, &LabelKeyInput::LabelEntered, m_kpPresenter, &WorkspacePresenter::SelectLabel);
+    connect(m_pKeyInput, &LabelKeyInput::LabelEntered, m_kpPresenter, &WorkspacePresenter::SelectFdi);
     connect(m_pKeyInput, &LabelKeyInput::PendingChanged, m_kpObservers, &Observers::PendingLabelDigitsChanged);
 
     connect(m_kpPresenter, &WorkspacePresenter::LoadStarted, this, &MainWindow::OnLoadStarted);
@@ -300,13 +300,21 @@ void MainWindow::CreateMenusAndActions()
 
     QMenu* pLabel = pMenuBar->addMenu(QStringLiteral("라벨(&L)"));
     AddAction(pLabel, QStringLiteral("치은"), QKeySequence(Qt::Key_G), [this] { m_kpPresenter->SelectLabel(kGingiva); });
+    // 클래스 바꾸기: Alt + 클래스 값 (파일의 label 값과 같다)
+    for (const LabelTable::ClassInfo& info : LabelTable::GetClasses())
+    {
+        const int iClass = info.m_iValue;
+        AddAction(pLabel, QStringLiteral("클래스: %1 (label %2)").arg(QString::fromUtf8(info.m_kpName)).arg(iClass),
+                  QKeySequence(Qt::ALT + Qt::Key_0 + iClass), [this, iClass] { m_kpPresenter->SelectClass(iClass); });
+    }
+    pLabel->addSeparator();
     AddAction(pLabel, QStringLiteral("다음 치아"), QKeySequence(Qt::Key_Tab), [this] { m_kpPresenter->SelectAdjacentTooth(1); });
     AddAction(pLabel, QStringLiteral("이전 치아"), QKeySequence(Qt::SHIFT + Qt::Key_Backtab), [this] { m_kpPresenter->SelectAdjacentTooth(-1); })
         ->setShortcuts({ QKeySequence(Qt::SHIFT + Qt::Key_Backtab), QKeySequence(Qt::SHIFT + Qt::Key_Tab) });
     AddAction(pLabel, QStringLiteral("활성 라벨 잠금 · 해제"), QKeySequence(Qt::CTRL + Qt::Key_L),
               [this] { m_kpPresenter->ToggleLocked(m_kpSystem->GetActiveLabel()); });
     AddAction(pLabel, QStringLiteral("활성 치아 결손 표시"), QKeySequence(Qt::SHIFT + Qt::Key_M),
-              [this] { m_pLabelPanel->ChangeToothState(m_kpSystem->GetActiveLabel(), EToothState::MISSING); });
+              [this] { m_pLabelPanel->ChangeToothState(LabelTable::GetFdiOf(m_kpSystem->GetActiveLabel()), EToothState::MISSING); });
 
     QMenu* pHelp = pMenuBar->addMenu(QStringLiteral("도움말(&H)"));
     AddAction(pHelp, QStringLiteral("단축키"), QKeySequence(Qt::Key_Question), [this] { ShowShortcutHelp(); });
@@ -436,7 +444,7 @@ bool MainWindow::ConfirmDiscardOrSave(const QString& question)
 void MainWindow::OnOpenTriggered()
 {
     const QString strPath = QFileDialog::getOpenFileName(this, QStringLiteral("케이스 열기"), QString(),
-                                                         QStringLiteral("구강 스캔 (*.ply);;모든 파일 (*.*)"));
+                                                         QStringLiteral("구강 스캔 · 라벨 파일 (*.ply);;모든 파일 (*.*)"));
     if (!strPath.isEmpty())
     {
         OpenFile(strPath);
@@ -568,6 +576,7 @@ void MainWindow::ShowShortcutHelp()
         "<tr><td colspan='2'><b>라벨</b></td></tr>"
         "<tr><td>숫자 두 개</td><td>FDI 번호 (예: 3 다음 6 → 36, 0.8초 안)</td></tr>"
         "<tr><td>0 · G</td><td>치은</td></tr>"
+        "<tr><td>Alt+0 · Alt+1 · Alt+2</td><td>클래스: 치은 · 치아 · 스캔바디 (예: Alt+2 다음 3 6 → 36 자리 스캔바디)</td></tr>"
         "<tr><td>Tab · Shift+Tab</td><td>아치 순서로 다음 · 이전 치아</td></tr>"
         "<tr><td>Ctrl+L · Shift+M</td><td>잠금 · 결손 표시</td></tr>"
         "<tr><td colspan='2'><b>보기</b></td></tr>"

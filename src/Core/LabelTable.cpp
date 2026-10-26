@@ -7,14 +7,14 @@
 
 namespace
 {
-struct LabelColor
+struct FdiColor
 {
-    int iLabel;
+    int iFdi;
     unsigned int uRgb;
 };
 
 // 아치에서 이웃한 두 치아가 색상으로 갈리도록 고른 기본 팔레트. 붉은 분홍 계열은 치은에만 쓴다
-const std::array<LabelColor, 33> kLabelColors = { {
+const std::array<FdiColor, 32> kFdiColors = { {
     { 11, 0x4FA8F0 }, { 12, 0xF19A4A }, { 13, 0xB07AE8 }, { 14, 0x3FB6A0 },
     { 15, 0xE7C64A }, { 16, 0x5A7BEA }, { 17, 0xC99A2E }, { 18, 0x8FD0E8 },
     { 21, 0xE2B640 }, { 22, 0x43C3B8 }, { 23, 0x8E83F2 }, { 24, 0xF0915A },
@@ -23,75 +23,141 @@ const std::array<LabelColor, 33> kLabelColors = { {
     { 35, 0x4D8EF0 }, { 36, 0xF07E4F }, { 37, 0x36C08A }, { 38, 0xD6A7F5 },
     { 41, 0x6C7FF2 }, { 42, 0xF0D24A }, { 43, 0x29BFB0 }, { 44, 0xEE8A3C },
     { 45, 0x7FCB5B }, { 46, 0x3E9BE8 }, { 47, 0xE0B23A }, { 48, 0xB98AF0 },
-    { 0, 0xC98B95 },
 } };
+
+const QColor kGingivaColor(0xC9, 0x8B, 0x95);
+const QColor kScanbodyColor(0xA0, 0xAE, 0xC0);
+const QColor kOtherColor(0x8B, 0x96, 0xA1);
+
+QColor GetFdiColor(int fdi)
+{
+    for (const FdiColor& fdiColor : kFdiColors)
+    {
+        if (fdiColor.iFdi == fdi)
+        {
+            return QColor(QRgb(fdiColor.uRgb));
+        }
+    }
+    return kOtherColor;
+}
 }
 
 namespace LabelTable
 {
-bool IsTooth(int label)
+const std::vector<ClassInfo>& GetClasses()
 {
-    const int iQuadrant = label / 10;
-    const int iPosition = label % 10;
-    return label > 0 && iQuadrant >= 1 && iQuadrant <= 4 && iPosition >= 1 && iPosition <= 8;
+    static const std::vector<ClassInfo> vecClasses = {
+        { kClassGingiva, "gingiva", "치은", EFdiUse::NONE },
+        { kClassTooth, "tooth", "치아", EFdiUse::REQUIRED },
+        { kClassScanbody, "scanbody", "스캔바디", EFdiUse::ALLOWED },
+    };
+    return vecClasses;
 }
 
-bool IsValidLabel(int label)
+const ClassInfo* FindClass(int classValue)
 {
-    return label == kUnlabeled || label == kGingiva || IsTooth(label);
+    for (const ClassInfo& info : GetClasses())
+    {
+        if (info.m_iValue == classValue)
+        {
+            return &info;
+        }
+    }
+    return nullptr;
 }
 
-EJaw GetJaw(int label)
+QString GetClassName(int classValue)
 {
-    if (!IsTooth(label))
+    const ClassInfo* kpInfo = FindClass(classValue);
+    return kpInfo != nullptr ? QString::fromUtf8(kpInfo->m_kpName) : QStringLiteral("클래스 %1").arg(classValue);
+}
+
+int MakeCode(int classValue, int fdi)
+{
+    return classValue * kCodeClassStride + fdi;
+}
+
+int GetClassOf(int code)
+{
+    return code < 0 ? -1 : code / kCodeClassStride;
+}
+
+int GetFdiOf(int code)
+{
+    return code < 0 ? 0 : code % kCodeClassStride;
+}
+
+bool IsValidCode(int code)
+{
+    if (code == kUnlabeled)
+    {
+        return true;
+    }
+    if (code < 0 || code >= (kMaxClass + 1) * kCodeClassStride)
+    {
+        return false;
+    }
+    const ClassInfo* kpInfo = FindClass(GetClassOf(code));
+    if (kpInfo == nullptr)
+    {
+        return false;
+    }
+    const int iFdi = GetFdiOf(code);
+    switch (kpInfo->m_eFdiUse)
+    {
+    case EFdiUse::NONE:
+        return iFdi == 0;
+    case EFdiUse::REQUIRED:
+        return IsFdi(iFdi);
+    case EFdiUse::ALLOWED:
+        return iFdi == 0 || IsFdi(iFdi);
+    }
+    return false;
+}
+
+bool IsToothCode(int code)
+{
+    return GetClassOf(code) == kClassTooth && IsFdi(GetFdiOf(code));
+}
+
+bool IsFdi(int fdi)
+{
+    const int iQuadrant = fdi / 10;
+    const int iPosition = fdi % 10;
+    return fdi > 0 && iQuadrant >= 1 && iQuadrant <= 4 && iPosition >= 1 && iPosition <= 8;
+}
+
+EJaw GetJawOfFdi(int fdi)
+{
+    if (!IsFdi(fdi))
     {
         return EJaw::UNKNOWN;
     }
-    return label / 10 <= 2 ? EJaw::UPPER : EJaw::LOWER;
+    return fdi / 10 <= 2 ? EJaw::UPPER : EJaw::LOWER;
 }
 
-QColor GetColor(int label)
-{
-    for (const LabelColor& labelColor : kLabelColors)
-    {
-        if (labelColor.iLabel == label)
-        {
-            return QColor(QRgb(labelColor.uRgb));
-        }
-    }
-    return QColor(0x8B, 0x96, 0xA1);
-}
-
-QString GetToothTypeName(int label)
+QString GetFdiTypeName(int fdi)
 {
     static const std::array<const char*, 9> arrNames = { {
         "", "중절치", "측절치", "견치", "제1소구치", "제2소구치", "제1대구치", "제2대구치", "제3대구치",
     } };
-    if (!IsTooth(label))
+    if (!IsFdi(fdi))
     {
         return QString();
     }
-    return QString::fromUtf8(arrNames[static_cast<size_t>(label % 10)]);
+    return QString::fromUtf8(arrNames[static_cast<size_t>(fdi % 10)]);
 }
 
-QString GetName(int label)
+QString GetFdiName(int fdi)
 {
-    if (label == kUnlabeled)
-    {
-        return QStringLiteral("미분류");
-    }
-    if (label == kGingiva)
-    {
-        return QStringLiteral("치은");
-    }
-    if (!IsTooth(label))
-    {
-        return QString::number(label);
-    }
     static const std::array<const char*, 5> arrQuadrants = { {
         "", "상악 우측", "상악 좌측", "하악 좌측", "하악 우측",
     } };
-    return QString::fromUtf8(arrQuadrants[static_cast<size_t>(label / 10)]) + QLatin1Char(' ') + GetToothTypeName(label);
+    if (!IsFdi(fdi))
+    {
+        return QString();
+    }
+    return QString::fromUtf8(arrQuadrants[static_cast<size_t>(fdi / 10)]) + QLatin1Char(' ') + GetFdiTypeName(fdi);
 }
 
 const std::vector<int>& GetArchOrder(EJaw jaw)
@@ -114,6 +180,78 @@ const std::vector<int>& GetArchOrder(EJaw jaw)
         break;
     }
     return vecBoth;
+}
+
+EJaw GetJaw(int code)
+{
+    return GetJawOfFdi(GetFdiOf(code));
+}
+
+QColor GetColor(int code)
+{
+    if (code == kGingiva)
+    {
+        return kGingivaColor;
+    }
+    const int iClass = GetClassOf(code);
+    const int iFdi = GetFdiOf(code);
+    if (iClass == kClassTooth)
+    {
+        return GetFdiColor(iFdi);
+    }
+    if (iClass == kClassScanbody)
+    {
+        // 스캔바디는 그 자리 치아 색을 옅게 쓴다. 자리가 없으면 금속 회색
+        if (!IsFdi(iFdi))
+        {
+            return kScanbodyColor;
+        }
+        const QColor colFdi = GetFdiColor(iFdi);
+        return QColor((colFdi.red() + 255) / 2, (colFdi.green() + 255) / 2, (colFdi.blue() + 255) / 2);
+    }
+    return kOtherColor;
+}
+
+QString GetName(int code)
+{
+    if (code == kUnlabeled)
+    {
+        return QStringLiteral("미분류");
+    }
+    const int iClass = GetClassOf(code);
+    const int iFdi = GetFdiOf(code);
+    if (iClass == kClassTooth && IsFdi(iFdi))
+    {
+        return GetFdiName(iFdi);
+    }
+    if (IsFdi(iFdi))
+    {
+        return QStringLiteral("%1 자리 %2").arg(iFdi).arg(GetClassName(iClass));
+    }
+    return GetClassName(iClass);
+}
+
+QString GetShortText(int code)
+{
+    if (code == kUnlabeled)
+    {
+        return QStringLiteral("−1");
+    }
+    const int iClass = GetClassOf(code);
+    const int iFdi = GetFdiOf(code);
+    if (iClass == kClassTooth)
+    {
+        return QString::number(iFdi);
+    }
+    if (iClass == kClassScanbody)
+    {
+        return iFdi > 0 ? QStringLiteral("SB%1").arg(iFdi) : QStringLiteral("SB");
+    }
+    if (iClass == kClassGingiva)
+    {
+        return QStringLiteral("0");
+    }
+    return QStringLiteral("C%1%2").arg(iClass).arg(iFdi > 0 ? QStringLiteral("·%1").arg(iFdi) : QString());
 }
 
 QString GetToothStateName(EToothState state)

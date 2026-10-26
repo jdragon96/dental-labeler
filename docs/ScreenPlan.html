@@ -461,7 +461,7 @@ figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:90ch}
 
   <h3>설계 원칙</h3>
   <ol class="principles">
-    <li><div><b>원본은 건드리지 않는다.</b> 메시 파일은 읽기만 하고 라벨은 옆 파일에 저장한다. 라벨 파일은 원본의 정점 수와 SHA-256 을 기억해 원본이 바뀌면 열 때 알린다.</div></li>
+    <li><div><b>원본은 건드리지 않는다.</b> 스캔 파일은 읽기만 하고, 라벨은 원본을 복사한 <code>&lt;이름&gt;.labeled.ply</code> 의 <code>int fdi · label · instance</code> 필드에 저장한다. 열 때 원본과 정점 수 · 위치가 다르면 알린다.</div></li>
     <li><div><b>손은 마우스와 키보드에 둔다.</b> 라벨은 숫자 두 개(<kbd>3</kbd> <kbd>6</kbd>)로, 도구는 글자 하나로 바꾼다. 반복 동작 중 메뉴를 거쳐야만 하는 것은 없다.</div></li>
     <li><div><b>보이는 면만 칠한다.</b> 모든 도구의 기본값은 카메라에서 보이는 정점만 바꾸는 것이다. 뒤쪽까지 바꾸려면 '관통'을 직접 켠다.</div></li>
     <li><div><b>이미 칠한 것을 지킨다.</b> 기본 덮어쓰기 규칙은 '미분류 · 치은만'이고 잠근 라벨은 어떤 도구로도 바뀌지 않는다.</div></li>
@@ -598,13 +598,14 @@ figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:90ch}
   <ul class="prose">
     <li><b>숫자 두 개</b>: <kbd>3</kbd> 다음 0.8초 안에 <kbd>6</kbd> 을 누르면 36 이 활성 라벨이 된다. 첫 숫자를 누르면 뷰포트 위에 <code>3_</code> 가 뜨고, 시간이 지나거나 없는 번호(예: 39)면 아무것도 바뀌지 않는다.</li>
     <li><kbd>0</kbd> 또는 <kbd>G</kbd>: 치은. 미분류로 되돌리는 것은 지우개 <kbd>E</kbd> 나 <kbd>Ctrl</kbd>+드래그로 한다.</li>
+    <li>클래스: <kbd>Alt</kbd>+<kbd>0</kbd> 치은 · <kbd>Alt</kbd>+<kbd>1</kbd> 치아 · <kbd>Alt</kbd>+<kbd>2</kbd> 스캔바디 (숫자가 파일의 <code>label</code> 값). 숫자 두 개는 지금 클래스의 자리를 고른다. 예: <kbd>Alt</kbd>+<kbd>2</kbd> 다음 <kbd>3</kbd> <kbd>6</kbd> → 36 자리 스캔바디. 오른쪽 패널의 클래스 버튼도 같다.</li>
     <li><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd>: 아치 순서로 다음 · 이전 치아. 하악은 48 → 41 → 31 → 38, 결손 치아는 건너뛴다.</li>
     <li>치식도 칸 클릭, 라벨 목록 행 클릭, <kbd>Alt</kbd>+클릭 스포이드.</li>
     <li>열린 턱에 없는 번호(하악 케이스에서 11–28)는 고를 수 없다.</li>
   </ul>
 
   <h3>3.4 라벨 색</h3>
-  <div class="prose"><p>저장 값은 FDI 코드이고 색은 표시용이다. 기본 팔레트는 아치에서 이웃한 두 치아가 색상(hue)으로 확실히 갈리도록 골랐고, 중절치 쌍(11/21, 31/41)도 서로 다른 색 계열이다. 붉은 분홍 계열은 치은에만 쓴다. 미분류는 색을 입히지 않고 원래 셰이딩으로 보인다. 색은 DL-40 에서 바꿀 수 있다.</p></div>
+  <div class="prose"><p>저장 값은 FDI 코드이고 색은 표시용이다. 기본 팔레트는 아치에서 이웃한 두 치아가 색상(hue)으로 확실히 갈리도록 골랐고, 중절치 쌍(11/21, 31/41)도 서로 다른 색 계열이다. 붉은 분홍 계열은 치은에만 쓴다. 스캔바디는 그 자리 치아 색을 옅게 쓰고, 자리가 없으면 금속 회색이다. 미분류는 색을 입히지 않고 원래 셰이딩으로 보인다. 색은 DL-40 에서 바꿀 수 있다.</p></div>
   <figure>
     <div class="dgw"><div class="pal" id="palette"></div></div>
     <figcaption>그림 3. 기본 라벨 팔레트. 위 줄은 상악(18–11, 21–28), 아래 줄은 하악(48–41, 31–38). 환자 오른쪽이 화면 왼쪽인 치식 표기 순서다.</figcaption>
@@ -653,7 +654,7 @@ figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:90ch}
   <div class="tw"><table class="spec">
     <thead><tr><th>#</th><th>영역</th><th>내용</th></tr></thead>
     <tbody>
-      <tr><td><span class="n">1</span></td><td class="nw">시작 동작</td><td>새 프로젝트는 폴더를 고르고 이름과 라벨 체계(기본 FDI 영구치)를 정한 뒤 DL-10 으로 간다. 파일 바로 열기는 프로젝트 없이 파일 하나를 DL-20 에서 연다. 이때 라벨은 파일 옆 <code>&lt;이름&gt;.labels.json</code> 에 저장되고 제출 · 검수 기능은 꺼진다.</td></tr>
+      <tr><td><span class="n">1</span></td><td class="nw">시작 동작</td><td>새 프로젝트는 폴더를 고르고 이름과 라벨 체계(기본 FDI 영구치)를 정한 뒤 DL-10 으로 간다. 파일 바로 열기는 프로젝트 없이 파일 하나를 DL-20 에서 연다. 이때 라벨은 파일 옆 <code>&lt;이름&gt;.labeled.ply</code> 에 저장되고 제출 · 검수 기능은 꺼진다.</td></tr>
       <tr><td><span class="n">2</span></td><td class="nw">끌어다 놓기</td><td>파일이면 파일 바로 열기, <code>project.dlproj</code> 가 있는 폴더면 프로젝트 열기. 둘 다 아니면 "프로젝트 폴더나 3D 파일이 아니다"를 놓은 자리 아래에 3초간 보인다.</td></tr>
       <tr><td><span class="n">3</span></td><td class="nw">최근 목록</td><td>프로젝트 10개, 파일 10개. 진행은 완료 케이스 수 / 전체. 폴더를 찾을 수 없는 항목은 지운 줄로 보이고 목록에서 지울 수 있다. 공유 폴더가 연결되지 않았을 때도 같은 표시다.</td></tr>
       <tr><td><span class="n">4</span></td><td class="nw">작업자 이름</td><td>처음 실행할 때 묻는다. 잠금 파일, 기록, 검수 의견에 남는다. 계정 인증은 아니다(미결 D-1).</td></tr>
@@ -886,7 +887,7 @@ figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:90ch}
       <tr><td class="nw">불러오는 중</td><td>파일 읽기부터 GPU 올리기까지</td><td>DL-90 ①. 1초 안에 끝나면 띄우지 않는다.</td></tr>
       <tr><td class="nw">편집</td><td>미작업 · 작업중 · 반려</td><td>위 와이어프레임. 반려 케이스는 뷰포트 위에 반려 사유 띠와 의견 핀(DL-24 와 같은 모양)을 보이고, 의견마다 '고침' 표시를 할 수 있다.</td></tr>
       <tr><td class="nw">읽기 전용</td><td>검수대기 · 완료, 또는 다른 사람이 잠금</td><td>뷰포트 위 띠 "읽기 전용 · 검수대기 상태라 편집할 수 없다". 칠하는 도구는 숨기고 이동 · 보기만 남긴다. 제출 버튼 자리에 상태만 보인다.</td></tr>
-      <tr><td class="nw">원본 불일치</td><td>라벨 파일의 정점 수 · 해시가 메시와 다름</td><td>DL-90 ④. 케이스를 열지 않는다.</td></tr>
+      <tr><td class="nw">원본 불일치</td><td>라벨 파일의 정점 수 · 위치가 원본 메시와 다름</td><td>DL-90 ④. 케이스를 열지 않는다.</td></tr>
       <tr><td class="nw">라벨 100%</td><td>미분류 정점 0</td><td>상태 바 진행률이 초록이 되고 제출 버튼 옆에 "검사 통과 시 제출 가능"을 보인다.</td></tr>
     </tbody>
   </table></div>
@@ -1308,13 +1309,13 @@ figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:90ch}
       <div class="dlg-h"><span>지난 작업 복구</span></div>
       <div class="dlg-b"><span>DentalLabeler 가 정상 종료되지 않았다. case_0001_lower 의 14:28 자동 저장본에 마지막 저장 이후 변경 52건이 있다.</span></div>
       <div class="dlg-f"><span class="b dng" style="margin-right:auto">자동 저장본 버리기</span><span class="b">나중에</span><span class="b pri">복구</span></div>
-    </div><p class="cap"><b>③ 복구.</b> 자동 저장본은 <code>.autosave</code> 로 따로 두고, 복구하면 저장 안 된 변경 상태로 열린다.</p></div>
+    </div><p class="cap"><b>③ 복구.</b> 자동 저장본은 <code>&lt;이름&gt;.autosave.ply</code> 로 따로 두고, 복구하면 저장 안 된 변경 상태로 열린다.</p></div>
 
     <div><div class="app dlg">
       <div class="dlg-h"><span class="er">라벨 파일이 메시와 맞지 않는다</span></div>
       <div class="dlg-b"><span>라벨 파일은 정점 214,104개, 메시는 213,998개다. 원본 메시가 바뀐 것으로 보인다. 원본을 되돌리거나, 라벨 파일을 다른 이름으로 옮긴 뒤 새로 시작한다.</span></div>
       <div class="dlg-f"><span class="b" style="margin-right:auto">라벨 파일 위치 열기</span><span class="b pri">닫기</span></div>
-    </div><p class="cap"><b>④ 원본 불일치.</b> 정점 수나 SHA-256 이 다르면 열지 않는다. 라벨을 엉뚱한 정점에 붙이는 일을 막는다.</p></div>
+    </div><p class="cap"><b>④ 원본 불일치.</b> 라벨 파일과 원본의 정점 수나 정점 위치가 다르면 열지 않는다. 라벨을 엉뚱한 정점에 붙이는 일을 막는다.</p></div>
 
     <div><div class="app dlg">
       <div class="dlg-h"><span>다른 사람이 작업 중</span></div>
@@ -1335,7 +1336,7 @@ figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:90ch}
     </tbody></table></div>
     <div class="tw" style="margin:0"><table class="spec">
       <thead><tr><th colspan="2">라벨</th></tr></thead><tbody>
-      <tr><td>숫자 두 개</td><td>FDI 라벨 (0.8초 안)</td></tr><tr><td><kbd>0</kbd> · <kbd>G</kbd></td><td>치은</td></tr><tr><td><kbd>Tab</kbd> · <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>아치 순서 다음 · 이전 치아</td></tr><tr><td><kbd>Alt</kbd>+클릭</td><td>스포이드</td></tr><tr><td><kbd>Shift</kbd>+<kbd>M</kbd></td><td>활성 치아 결손 표시</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td><td>번호 바꾸기</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>활성 라벨 잠금 · 해제</td></tr>
+      <tr><td>숫자 두 개</td><td>FDI 라벨 (0.8초 안)</td></tr><tr><td><kbd>0</kbd> · <kbd>G</kbd></td><td>치은</td></tr><tr><td><kbd>Alt</kbd>+<kbd>0</kbd> · <kbd>1</kbd> · <kbd>2</kbd></td><td>클래스: 치은 · 치아 · 스캔바디</td></tr><tr><td><kbd>Tab</kbd> · <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>아치 순서 다음 · 이전 치아</td></tr><tr><td><kbd>Alt</kbd>+클릭</td><td>스포이드</td></tr><tr><td><kbd>Shift</kbd>+<kbd>M</kbd></td><td>활성 치아 결손 표시</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td><td>번호 바꾸기</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>활성 라벨 잠금 · 해제</td></tr>
     </tbody></table></div>
     <div class="tw" style="margin:0"><table class="spec">
       <thead><tr><th colspan="2">보기 · 카메라</th></tr></thead><tbody>
@@ -1354,48 +1355,74 @@ figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:90ch}
   <h2>데이터 형식</h2>
   <h3>프로젝트 폴더</h3>
 <pre><code>seg_2026q4/
-├─ project.dlproj                  프로젝트 설정 · 라벨 체계 · 케이스 목록 · 검사 기준값
+├─ project.dlproj                   프로젝트 설정 · 라벨 체계 · 케이스 목록 · 작업 상태 · 검수 의견
 ├─ cases/
-│  ├─ case_0001_lower.ply          원본. 읽기만 한다
-│  ├─ case_0001_lower.labels.json  라벨 · 치아 상태 · 케이스 상태 · 검수 의견
-│  ├─ case_0001_lower.autosave     자동 저장본 (정상 저장하면 지움)
-│  └─ case_0001_lower.lock         잠금: 작업자 · 시각 · 1분마다 갱신
+│  ├─ case_0001_lower.ply           원본 스캔. 앱은 읽기만 한다
+│  ├─ case_0001_lower.labeled.ply   원본 정점 · 면 + int fdi · label · instance + 치아 상태 (저장할 때 쓴다)
+│  ├─ case_0001_lower.autosave.ply  자동 저장본, 같은 형식 (정상 저장하면 지운다)
+│  └─ case_0001_lower.lock          잠금: 작업자 · 시각 · 1분마다 갱신
 └─ exports/</code></pre>
 
-  <h3>라벨 파일</h3>
-  <p class="prose muted">예시다. <code>labels</code> 는 원본 정점 순서대로 정점 수만큼의 정수이고 여기서는 줄였다. 0 은 치은, −1 은 미분류.</p>
-<pre><code>{
-  "format": "dentallabeler.labels",
-  "version": 1,
-  "case_id": "case_0001_lower",
-  "jaw": "lower",
-  "source": {
-    "file": "case_0001_lower.ply",
-    "vertex_count": 214104,
-    "face_count": 422306,
-    "sha256": "&lt;원본 파일 해시&gt;"
-  },
-  "schema": "fdi-permanent@1",
-  "labels": [0, 0, 46, 46, 46, -1, 37],
-  "teeth": {
-    "37": { "state": "normal", "note": "원심면이 스캔 구멍과 맞닿음" },
-    "38": { "state": "missing" },
-    "48": { "state": "missing" }
-  },
-  "status": "in_progress",
-  "assignee": "labeler01",
-  "updated_at": "2026-10-25T14:31:07+09:00",
-  "review": [
-    { "id": 1, "round": 1, "vertex": 118402, "text": "…", "author": "reviewer01", "state": "open", "replies": [] }
-  ]
-}</code></pre>
+  <h3>라벨 파일 (<code>&lt;이름&gt;.labeled.ply</code>)</h3>
+  <ul class="prose">
+    <li>원본 스캔은 바꾸지 않는다. 원본의 정점 속성(좌표 · 색 · 법선 등)을 형식 그대로 복사하고 정점마다 int 필드 세 개를 붙인다. 정점 순서는 원본과 같다.</li>
+  </ul>
+  <div class="tw"><table class="spec">
+    <thead><tr><th>필드</th><th>뜻</th><th>값</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><code>fdi</code></td><td>치아 번호 (치아 · 스캔바디가 놓인 자리)</td><td>11–48, 자리가 없으면 0</td></tr>
+      <tr><td class="nw"><code>label</code></td><td>클래스</td><td>−1 미분류, 0 치은, 1 치아, 2 스캔바디 (클래스는 앱의 클래스 표에 더할 수 있고, 파일 헤더에 목록을 함께 쓴다)</td></tr>
+      <tr><td class="nw"><code>instance</code></td><td>대상 번호</td><td>치은 · 미분류 0. 칠한 대상(클래스 + 자리)마다 1부터: 클래스 순서, 같은 클래스 안에서는 치식 순서(상악 18 … 28, 하악 48 … 38). 저장할 때마다 다시 매긴다</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="prose">
+    <li>열 때 <code>scalar_fdi</code> · <code>scalar_label</code> · <code>scalar_instance</code>(CloudCompare 가 붙이는 이름)도 같은 필드로 읽고, 저장은 <code>fdi</code> · <code>label</code> · <code>instance</code> 로 한다. 이전 형식(<code>label</code> 하나에 FDI 번호)도 읽는다.</li>
+    <li>면은 삼각형으로 쓴다(원본의 다각형 면은 나눈다). 원본의 면 속성과 정점 · 면이 아닌 요소는 옮기지 않는다.</li>
+    <li>치아 상태 · 메모 · 작업 상태는 헤더 comment 에 쓴다. 공백과 한글은 퍼센트 인코딩한다. 원본 헤더의 comment(스캐너 정보)는 그대로 남긴다.</li>
+    <li>열 때 원본과 정점 수 · 위치가 같은지 확인하고, 다르면 열지 않는다(DL-90 ④). 원본 SHA-256 은 출처 기록으로만 남긴다.</li>
+    <li>원본 없이 라벨 파일만 있으면 라벨 파일 자체를 연다. 이때 저장도 그 파일에 한다.</li>
+    <li>다른 도구가 원본에 넣어 둔 라벨 필드가 위 규칙에 맞으면 그것으로 시작하고, 아니면 쓰지 않는다.</li>
+  </ul>
+<pre><code>ply
+format binary_little_endian 1.0
+comment Medit generated PLY File
+comment dentallabeler format 2
+comment dentallabeler fields fdi label instance
+comment dentallabeler class -1 unlabeled
+comment dentallabeler class 0 gingiva
+comment dentallabeler class 1 tooth
+comment dentallabeler class 2 scanbody
+comment dentallabeler instance 1 label 1 fdi 48
+comment dentallabeler instance 2 label 1 fdi 47
+comment dentallabeler ...
+comment dentallabeler instance 15 label 2 fdi 36
+comment dentallabeler source case_0001_lower.ply &lt;원본 SHA-256&gt; 214104 422306
+comment dentallabeler jaw lower
+comment dentallabeler status in_progress
+comment dentallabeler assignee labeler01
+comment dentallabeler updated 2026-10-25T14:31:07+09:00
+comment dentallabeler tooth 37 normal %EC%9B%90%EC%8B%AC%EB%A9%B4%EC%9D%B4%20...
+comment dentallabeler tooth 38 missing
+comment dentallabeler tooth 48 missing
+element vertex 214104
+property float x
+property float y
+property float z
+property int fdi
+property int label
+property int instance
+element face 422306
+property list uchar int vertex_indices
+end_header
+&lt;바이너리 본문&gt;</code></pre>
+  <p class="prose muted">자동 저장본에는 <code>comment dentallabeler unsaved_edits 52</code> 처럼 마지막 저장 뒤 편집 수가 더 붙는다. 검수 의견처럼 케이스 밖에서 관리할 정보는 project.dlproj 에 둔다(DL-10 과 함께 정한다).</p>
 
   <h3>내보내기 형식</h3>
   <div class="tw"><table class="spec">
     <thead><tr><th>형식</th><th>내용</th><th>용도</th></tr></thead>
     <tbody>
       <tr><td class="nw">Teeth3DS 호환 JSON</td><td><code>id_patient</code>, <code>jaw</code>, <code>labels</code>(FDI, 0 = 치은), <code>instances</code>(치아마다 1부터)</td><td>3DTeethSeg 계열 학습 코드를 그대로 쓸 때</td></tr>
-      <tr><td class="nw">라벨 PLY</td><td>원본 정점과 면 + 정점 속성 <code>label</code>(int) + RGB</td><td>다른 뷰어(MeshLab 등)에서 확인</td></tr>
+      <tr><td class="nw">라벨 PLY</td><td>작업 파일 <code>&lt;이름&gt;.labeled.ply</code> 그대로 (원본 정점 속성 + <code>int fdi · label · instance</code>)</td><td>Open3D · trimesh · plyfile · MeshLab 에서 바로 읽을 때</td></tr>
       <tr><td class="nw">치아별 메시</td><td>치아마다 STL 하나. 경계에 걸친 면은 세 정점의 다수결로 정한다</td><td>치아 단위 형상 분석 · 학습</td></tr>
       <tr><td class="nw">포인트 배열 NPY</td><td>N × 4 float32 (x, y, z, label)</td><td>포인트 클라우드 학습</td></tr>
     </tbody>

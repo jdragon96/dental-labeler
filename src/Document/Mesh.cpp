@@ -81,6 +81,12 @@ void Mesh::ComputeNormals()
     }
 }
 
+bool Mesh::IsSameGeometry(const Mesh& other) const
+{
+    // 같은 원본에서 나온 값이면 비트까지 같으므로 허용 오차 없이 비교한다
+    return m_vecPositions == other.m_vecPositions;
+}
+
 void Mesh::GetBounds(QVector3D& v3Min, QVector3D& v3Max) const
 {
     const float fMax = std::numeric_limits<float>::max();

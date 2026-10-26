@@ -13,8 +13,11 @@ class OdontogramWidget : public QWidget
 public:
     struct ToothCell
     {
+        // 그 자리 치아 정점 수
         int m_iCount = 0;
         EToothState m_eState = EToothState::NORMAL;
+        // 그 자리 스캔바디 정점 수
+        int m_iScanbodyCount = 0;
     };
 
 public:
@@ -22,7 +25,8 @@ public:
 
 public:
     void SetJaw(EJaw jaw);
-    void SetActiveLabel(int label);
+    // 강조할 FDI 자리 (0 이면 없음)
+    void SetActiveLabel(int fdi);
     void SetCells(const QHash<int, ToothCell>& hashCells);
     QSize sizeHint() const override;
 

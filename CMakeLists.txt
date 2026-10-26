@@ -39,6 +39,8 @@ add_library(DentalLabelerCore STATIC
     src/Document/Mesh.cpp
     src/Document/PlyReader.h
     src/Document/PlyReader.cpp
+    src/Document/PlyWriter.h
+    src/Document/PlyWriter.cpp
     src/Document/FileHash.h
     src/Document/FileHash.cpp
     src/Document/LabelDocument.h

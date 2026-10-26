@@ -34,7 +34,7 @@ const std::vector<int>& GetRow(int row)
 OdontogramWidget::OdontogramWidget(QWidget* parent)
     : QWidget(parent)
     , m_eJaw(EJaw::UNKNOWN)
-    , m_iActiveLabel(kGingiva)
+    , m_iActiveLabel(0)
     , m_hashCells()
 {
     setMouseTracking(false);
@@ -100,7 +100,7 @@ void OdontogramWidget::paintEvent(QPaintEvent*)
             const QRectF rcCell = GetCellRect(iRow, iColumn);
             const QRectF rcGlyph(rcCell.center().x() - 7.5, rcCell.top() + 1.0, 15.0, kGlyphHeight - 3.0);
             const ToothCell cell = m_hashCells.value(iLabel);
-            const QColor colLabel = LabelTable::GetColor(iLabel);
+            const QColor colLabel = LabelTable::GetColor(LabelTable::MakeCode(LabelTable::kClassTooth, iLabel));
             const bool bMissing = cell.m_eState == EToothState::MISSING;
 
             QPainterPath pathGlyph;
@@ -133,6 +133,14 @@ void OdontogramWidget::paintEvent(QPaintEvent*)
                 painter.setPen(QPen(colOutline, 1.3));
                 painter.setBrush(Qt::NoBrush);
                 painter.drawPath(pathGlyph);
+            }
+
+            if (bEnabled && cell.m_iScanbodyCount > 0)
+            {
+                // 그 자리에 스캔바디가 칠해져 있으면 칸 가운데 작은 사각형
+                painter.setPen(QPen(QColor(0x22, 0x27, 0x2D), 1.2));
+                painter.setBrush(LabelTable::GetColor(LabelTable::MakeCode(LabelTable::kClassScanbody, iLabel)));
+                painter.drawRect(QRectF(rcGlyph.center().x() - 3.5, rcGlyph.center().y() - 3.5, 7.0, 7.0));
             }
 
             if (cell.m_eState != EToothState::NORMAL && !bMissing)
