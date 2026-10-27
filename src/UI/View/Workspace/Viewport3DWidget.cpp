@@ -5,9 +5,11 @@
 #include "Core/SystemStatus.h"
 #include "Document/CaseData.h"
 #include "Presenter/Workspace/WorkspacePresenter.h"
+#include "UI/View/Workspace/LabelMenu.h"
 
 #include <QFocusEvent>
 #include <QKeyEvent>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QOpenGLContext>
 #include <QPainter>
@@ -25,6 +27,8 @@ constexpr int kAttributePosition = 0;
 constexpr int kAttributeNormal = 1;
 constexpr int kAttributeColor = 2;
 constexpr unsigned int kGlProgramPointSize = 0x8642;
+// 이보다 적게 움직이고 뗀 오른쪽 버튼은 회전이 아니라 클릭이다 (px)
+constexpr double kClickSlop = 4.0;
 
 // GLSL ES 1.00 과 데스크톱 GLSL 1.10 양쪽에서 돈다. 데스크톱에서는 Qt 가 정밀도 한정자를 정의해 준다
 const char* kVertexShader = R"(
@@ -122,9 +126,12 @@ Viewport3DWidget::Viewport3DWidget(Observers* kpObservers, SystemStatus* kpSyste
     , m_bHasNormals(false)
     , m_iIndexCount(0)
     , m_vecColorBytes()
+    , m_vecPalette(BuildPalette())
     , m_eDrag(EDrag::NONE)
     , m_ptLastMouse()
     , m_ptLastDab()
+    , m_ptRightPress()
+    , m_bRightClick(false)
     , m_bSpaceHeld(false)
     , m_bHover(false)
     , m_ptHover()
@@ -178,6 +185,11 @@ Viewport3DWidget::Viewport3DWidget(Observers* kpObservers, SystemStatus* kpSyste
     connect(m_kpObservers, &Observers::DisplayModeChanged, this, [this] { update(); });
     connect(m_kpObservers, &Observers::LabelOpacityChanged, this, [this] { update(); });
     connect(m_kpObservers, &Observers::PaintSettingsChanged, this, [this] { update(); });
+    connect(m_kpObservers, &Observers::LabelColorsChanged, this, [this] {
+        m_vecPalette = BuildPalette();
+        m_bColorsDirty = true;
+        update();
+    });
     connect(m_kpObservers, &Observers::PendingLabelDigitsChanged, this, &Viewport3DWidget::OnPendingDigitsChanged);
     connect(m_kpObservers, &Observers::ViewPresetRequested, this, &Viewport3DWidget::ApplyPreset);
     connect(m_kpObservers, &Observers::FitViewRequested, this, &Viewport3DWidget::FitAll);
@@ -330,6 +342,8 @@ void Viewport3DWidget::mousePressEvent(QMouseEvent* event)
     if (event->button() == Qt::RightButton)
     {
         m_eDrag = bShift ? EDrag::PAN : EDrag::ORBIT;
+        m_ptRightPress = ptMouse;
+        m_bRightClick = !bShift;
         return;
     }
     if (event->button() == Qt::MiddleButton)
@@ -401,6 +415,10 @@ void Viewport3DWidget::mouseMoveEvent(QMouseEvent* event)
     const QPointF ptMouse = event->localPos();
     const QPointF ptDelta = ptMouse - m_ptLastMouse;
     m_ptLastMouse = ptMouse;
+    if (m_bRightClick && QLineF(m_ptRightPress, ptMouse).length() > kClickSlop)
+    {
+        m_bRightClick = false;
+    }
 
     switch (m_eDrag)
     {
@@ -435,9 +453,32 @@ void Viewport3DWidget::mouseMoveEvent(QMouseEvent* event)
     update();
 }
 
-void Viewport3DWidget::mouseReleaseEvent(QMouseEvent*)
+void Viewport3DWidget::mouseReleaseEvent(QMouseEvent* event)
 {
+    const bool bRightClick = m_bRightClick && event->button() == Qt::RightButton;
+    m_bRightClick = false;
     FinishInteraction();
+    if (bRightClick)
+    {
+        ShowLabelMenu(event->localPos(), event->globalPos());
+    }
+}
+
+void Viewport3DWidget::ShowLabelMenu(const QPointF& point, const QPoint& globalPos)
+{
+    const PickResult pick = PickAt(point);
+    if (!pick.m_bHit || pick.m_label == kUnlabeled)
+    {
+        return;
+    }
+    const int iLabel = pick.m_label;
+    QMenu menu(this);
+    LabelMenu::AddTitle(menu, iLabel, m_kpPresenter);
+    menu.addAction(QStringLiteral("이 라벨로 칠하기"), this, [this, iLabel] { m_kpPresenter->SelectLabel(iLabel); });
+    LabelMenu::AddRenumberActions(menu, iLabel, m_kpSystem, m_kpPresenter, this);
+    menu.addSeparator();
+    LabelMenu::AddColorActions(menu, iLabel, m_kpPresenter, this);
+    menu.exec(globalPos);
 }
 
 void Viewport3DWidget::mouseDoubleClickEvent(QMouseEvent* event)
@@ -681,7 +722,6 @@ void Viewport3DWidget::UploadColors()
     {
         return;
     }
-    static const std::vector<std::array<unsigned char, 4>> vecPalette = BuildPalette();
     const std::vector<LabelValue>& vecLabels = kpCase->m_document.GetLabels();
     if (m_vecColorBytes.size() != vecLabels.size() * 4)
     {
@@ -689,7 +729,7 @@ void Viewport3DWidget::UploadColors()
     }
     for (size_t i = 0; i < vecLabels.size(); ++i)
     {
-        const std::array<unsigned char, 4>& arrColor = vecPalette[static_cast<size_t>(vecLabels[i] + 1)];
+        const std::array<unsigned char, 4>& arrColor = m_vecPalette[static_cast<size_t>(vecLabels[i] + 1)];
         std::copy(arrColor.begin(), arrColor.end(), m_vecColorBytes.begin() + static_cast<long>(i * 4));
     }
     m_bufColors.bind();
@@ -973,9 +1013,9 @@ QString Viewport3DWidget::GetToolHint() const
     switch (m_kpSystem->GetActiveTool())
     {
     case ETool::NAVIGATE:
-        return QStringLiteral("왼쪽 드래그 회전 · 가운데 드래그 이동 · 휠 확대 · 더블클릭 회전 중심");
+        return QStringLiteral("왼쪽 드래그 회전 · 가운데 드래그 이동 · 휠 확대 · 더블클릭 회전 중심 · 오른쪽 클릭 라벨 메뉴");
     case ETool::BRUSH:
-        return QStringLiteral("왼쪽 드래그 칠하기 · Ctrl+드래그 지우기 · [ ] 크기 · 오른쪽 드래그 회전 · 휠 확대");
+        return QStringLiteral("왼쪽 드래그 칠하기 · Ctrl+드래그 지우기 · [ ] 크기 · 오른쪽 드래그 회전 · 오른쪽 클릭 메뉴");
     case ETool::ERASER:
         return QStringLiteral("왼쪽 드래그 지우기 · [ ] 크기 · 오른쪽 드래그 회전 · 휠 확대");
     case ETool::FILL:

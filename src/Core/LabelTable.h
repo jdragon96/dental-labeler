@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QString>
 
+#include <map>
 #include <vector>
 
 // 정점 라벨 코드와 클래스 표 (docs/ScreenPlan.html 3.4, 부록 B).
@@ -60,7 +61,14 @@ const std::vector<int>& GetArchOrder(EJaw jaw);
 
 // 코드 기준
 EJaw GetJaw(int code);
+// 화면에 쓰는 색 (사용자가 바꾼 색 우선)
 QColor GetColor(int code);
+QColor GetDefaultColor(int code);
+// 사용자가 바꾼 색. 잘못된 색(QColor())을 주면 기본 색으로 되돌린다. 파일에는 저장하지 않는다
+void SetColorOverride(int code, const QColor& color);
+bool HasColorOverride(int code);
+const std::map<int, QColor>& GetColorOverrides();
+void ClearColorOverrides();
 // "하악 좌측 제2대구치", "36 자리 스캔바디", "치은", "미분류"
 QString GetName(int code);
 // 목록 · 칩에 쓰는 짧은 표기: "36", "SB36", "SB", "0", "−1"

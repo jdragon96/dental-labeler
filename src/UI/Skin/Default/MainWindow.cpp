@@ -9,7 +9,9 @@
 #include "Presenter/Workspace/WorkspacePresenter.h"
 #include "UI/Common/LabelKeyInput.h"
 #include "UI/Common/Theme/IconFactory.h"
+#include "UI/View/Workspace/LabelMenu.h"
 #include "UI/View/Workspace/LabelPanelView.h"
+#include "UI/View/Workspace/RenumberDialog.h"
 #include "UI/View/Workspace/ToolOptionsView.h"
 #include "UI/View/Workspace/ToolRailView.h"
 #include "UI/View/Workspace/Viewport3DWidget.h"
@@ -315,6 +317,23 @@ void MainWindow::CreateMenusAndActions()
               [this] { m_kpPresenter->ToggleLocked(m_kpSystem->GetActiveLabel()); });
     AddAction(pLabel, QStringLiteral("활성 치아 결손 표시"), QKeySequence(Qt::SHIFT + Qt::Key_M),
               [this] { m_pLabelPanel->ChangeToothState(LabelTable::GetFdiOf(m_kpSystem->GetActiveLabel()), EToothState::MISSING); });
+    pLabel->addSeparator();
+    AddAction(pLabel, QStringLiteral("번호 바꾸기…"), QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_R), [this] {
+        if (m_kpPresenter->HasCase())
+        {
+            RenumberDialog dialog(m_kpSystem, m_kpPresenter, this);
+            dialog.exec();
+        }
+    });
+    AddAction(pLabel, QStringLiteral("활성 라벨 번호 바꾸기…"), QKeySequence(), [this] {
+        if (m_kpPresenter->HasCase())
+        {
+            RenumberDialog dialog(m_kpSystem, m_kpPresenter, this);
+            dialog.StartWithSingle(m_kpSystem->GetActiveLabel());
+            dialog.exec();
+        }
+    });
+    AddAction(pLabel, QStringLiteral("활성 라벨 색 바꾸기…"), QKeySequence(), [this] { LabelMenu::PickColor(m_kpSystem->GetActiveLabel(), m_kpPresenter, this); });
 
     QMenu* pHelp = pMenuBar->addMenu(QStringLiteral("도움말(&H)"));
     AddAction(pHelp, QStringLiteral("단축키"), QKeySequence(Qt::Key_Question), [this] { ShowShortcutHelp(); });
@@ -579,6 +598,8 @@ void MainWindow::ShowShortcutHelp()
         "<tr><td>Alt+0 · Alt+1 · Alt+2</td><td>클래스: 치은 · 치아 · 스캔바디 (예: Alt+2 다음 3 6 → 36 자리 스캔바디)</td></tr>"
         "<tr><td>Tab · Shift+Tab</td><td>아치 순서로 다음 · 이전 치아</td></tr>"
         "<tr><td>Ctrl+L · Shift+M</td><td>잠금 · 결손 표시</td></tr>"
+        "<tr><td>Ctrl+Shift+R</td><td>번호 바꾸기 (치식 순서로 밀기 · 하나 바꾸기)</td></tr>"
+        "<tr><td>치아 오른쪽 클릭 (3D · 목록 · 치식도)</td><td>번호 바꾸기 (고른 번호에 정점이 있으면 맞바꿈) · 색 바꾸기</td></tr>"
         "<tr><td colspan='2'><b>보기</b></td></tr>"
         "<tr><td>오른쪽 드래그 · 가운데 드래그 · 휠</td><td>회전 · 이동 · 확대</td></tr>"
         "<tr><td>Space+왼쪽 드래그</td><td>임시 회전</td></tr>"

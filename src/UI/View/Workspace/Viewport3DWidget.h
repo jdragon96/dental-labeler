@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QVariantAnimation>
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -79,6 +80,8 @@ private:
     void FinishInteraction();
     float GetBrushScreenRadius(const QVector3D& point) const;
     void AnimateTargetTo(const QVector3D& target);
+    // 끌지 않은 오른쪽 클릭: 그 정점 라벨의 메뉴(고르기 · 번호 바꾸기 · 색)
+    void ShowLabelMenu(const QPointF& point, const QPoint& globalPos);
 
     void DrawBackground(QPainter& painter);
     void DrawScene();
@@ -104,10 +107,15 @@ private:
     bool m_bHasNormals;
     int m_iIndexCount;
     std::vector<unsigned char> m_vecColorBytes;
+    // 라벨 코드마다 RGBA (라벨 색을 바꾸면 다시 만든다)
+    std::vector<std::array<unsigned char, 4>> m_vecPalette;
 
     EDrag m_eDrag;
     QPointF m_ptLastMouse;
     QPointF m_ptLastDab;
+    QPointF m_ptRightPress;
+    // 오른쪽 버튼을 누른 뒤 아직 끌지 않았다 (떼면 메뉴)
+    bool m_bRightClick;
     bool m_bSpaceHeld;
     bool m_bHover;
     QPointF m_ptHover;

@@ -46,6 +46,7 @@ private:
     void OnTreeItemDoubleClicked(QTreeWidgetItem* pItem, int column);
     void OnStateClicked(int state);
     void OnToothContextMenu(int fdi, const QPoint& globalPos);
+    void OnTreeContextMenu(const QPoint& pos);
 
 private:
     std::unique_ptr<Ui::LabelPanelView> ui;

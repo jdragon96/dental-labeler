@@ -23,6 +23,8 @@ Application::Application()
     , m_upMainWindow()
 {
     ApplyTheme();
+    // 사용자가 바꾼 라벨 색은 창을 만들기 전에 불러 둔다
+    m_upWorkspacePresenter->LoadLabelColors();
     m_upMainWindow = std::make_unique<MainWindow>(m_upObservers.get(), m_upSystemStatus.get(), m_upWorkspacePresenter.get());
 }
 

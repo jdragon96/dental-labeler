@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RenumberDialog</class>
+ <widget class="QDialog" name="RenumberDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>480</width>
+    <height>540</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>번호 바꾸기</string>
+  </property>
+  <layout class="QVBoxLayout" name="layoutMain">
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <property name="leftMargin">
+    <number>16</number>
+   </property>
+   <property name="topMargin">
+    <number>14</number>
+   </property>
+   <property name="rightMargin">
+    <number>16</number>
+   </property>
+   <property name="bottomMargin">
+    <number>14</number>
+   </property>
+   <item>
+    <widget class="QRadioButton" name="radioShift">
+     <property name="text">
+      <string>치식 순서로 밀기 · 여러 자리를 한꺼번에 (예: 48–41 을 한 칸씩)</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="pageShift" native="true">
+     <layout class="QFormLayout" name="layoutShift">
+      <property name="leftMargin">
+       <number>22</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="labelFirst">
+        <property name="text">
+         <string>처음</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboFirst"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="labelLast">
+        <property name="text">
+         <string>끝</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="comboLast"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="labelDirection">
+        <property name="text">
+         <string>방향</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QComboBox" name="comboDirection"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="labelSteps">
+        <property name="text">
+         <string>칸 수</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QSpinBox" name="spinSteps">
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>3</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QRadioButton" name="radioSingle">
+     <property name="text">
+      <string>하나 바꾸기</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="pageSingle" native="true">
+     <layout class="QFormLayout" name="layoutSingle">
+      <property name="leftMargin">
+       <number>22</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="labelFrom">
+        <property name="text">
+         <string>바꿀 라벨</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboFrom"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="labelTo">
+        <property name="text">
+         <string>새 라벨</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="comboTo"/>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QCheckBox" name="checkSwap">
+        <property name="text">
+         <string>새 라벨에 정점이 있으면 맞바꾸기 (끄면 합친다)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTextBrowser" name="textPreview">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>180</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="openLinks">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

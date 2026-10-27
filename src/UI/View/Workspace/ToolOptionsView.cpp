@@ -114,6 +114,7 @@ ToolOptionsView::ToolOptionsView(Observers* kpObservers, SystemStatus* kpSystem,
     connect(m_kpObservers, &Observers::ActiveToolChanged, this, &ToolOptionsView::Refresh);
     connect(m_kpObservers, &Observers::PaintSettingsChanged, this, &ToolOptionsView::Refresh);
     connect(m_kpObservers, &Observers::ActiveLabelChanged, this, &ToolOptionsView::RefreshActiveLabel);
+    connect(m_kpObservers, &Observers::LabelColorsChanged, this, &ToolOptionsView::RefreshActiveLabel);
 
     Refresh();
     RefreshActiveLabel();

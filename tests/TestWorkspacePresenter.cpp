@@ -232,6 +232,50 @@ private slots:
         QCOMPARE(iFound, iScanbody);
     }
 
+    void RenumbersWithOneUndo()
+    {
+        QTemporaryDir dir;
+        const QString strMesh = CopySample(dir);
+        Fixture fixture;
+        QVERIFY(fixture.Open(strMesh));
+        const QVector3D v3Camera = fixture.m_presenter.GetCase()->m_frame.m_v3Center
+                                   + fixture.m_presenter.GetCase()->m_frame.m_v3Occlusal * 200.0f;
+        auto paintAt = [&](int fdi, float offset) {
+            fixture.m_presenter.SelectFdi(fdi);
+            fixture.m_presenter.BeginStroke(false);
+            fixture.m_presenter.PaintDab(fixture.PickSomewhere(offset), v3Camera);
+            fixture.m_presenter.EndStroke();
+        };
+        // 42 자리를 41 로, 41 자리를 31 로 잘못 칠했다고 본다
+        paintAt(42, -12.0f);
+        paintAt(41, 12.0f);
+        const int i42 = fixture.m_presenter.GetLabelRow(142).m_iCount;
+        const int i41 = fixture.m_presenter.GetLabelRow(141).m_iCount;
+        QVERIFY(i42 > 0 && i41 > 0);
+        QCOMPARE(fixture.m_system.GetActiveLabel(), 141);
+
+        const RenumberPlan plan = fixture.m_presenter.PlanArchShift(42, 41, 1);
+        QVERIFY2(plan.IsValid(), qPrintable(plan.m_strError));
+        QVERIFY(plan.m_lstWarnings.isEmpty());
+        QVERIFY(fixture.m_presenter.ApplyRenumber(plan));
+        QCOMPARE(fixture.m_presenter.GetLabelRow(142).m_iCount, 0);
+        QCOMPARE(fixture.m_presenter.GetLabelRow(141).m_iCount, i42);
+        QCOMPARE(fixture.m_presenter.GetLabelRow(131).m_iCount, i41);
+        // 칠하던 41 은 31 로 옮겨졌으니 활성 라벨도 따라간다
+        QCOMPARE(fixture.m_system.GetActiveLabel(), 131);
+        QCOMPARE(fixture.m_presenter.GetHistoryRows().size(), 3);
+
+        fixture.m_presenter.Undo();
+        QCOMPARE(fixture.m_presenter.GetLabelRow(142).m_iCount, i42);
+        QCOMPARE(fixture.m_presenter.GetLabelRow(141).m_iCount, i41);
+        QCOMPARE(fixture.m_presenter.GetLabelRow(131).m_iCount, 0);
+
+        // 하나 바꾸기: 맞바꾸기
+        QVERIFY(fixture.m_presenter.ApplyRenumber(fixture.m_presenter.PlanSingleRenumber(142, 141, true)));
+        QCOMPARE(fixture.m_presenter.GetLabelRow(141).m_iCount, i42);
+        QCOMPARE(fixture.m_presenter.GetLabelRow(142).m_iCount, i41);
+    }
+
     void StartsFromLabelFieldOfOtherTools()
     {
         QTemporaryDir dir;

@@ -47,6 +47,8 @@ add_library(DentalLabelerCore STATIC
     src/Document/LabelDocument.cpp
     src/Document/LabelFile.h
     src/Document/LabelFile.cpp
+    src/Document/LabelRenumber.h
+    src/Document/LabelRenumber.cpp
     src/Document/EditHistory.h
     src/Document/EditHistory.cpp
     src/Document/CaseData.h
@@ -105,9 +107,14 @@ add_executable(DentalLabeler WIN32
     src/UI/View/Workspace/ToolOptionsView.h
     src/UI/View/Workspace/ToolOptionsView.cpp
     src/UI/View/Workspace/ToolOptionsView.ui
+    src/UI/View/Workspace/LabelMenu.h
+    src/UI/View/Workspace/LabelMenu.cpp
     src/UI/View/Workspace/LabelPanelView.h
     src/UI/View/Workspace/LabelPanelView.cpp
     src/UI/View/Workspace/LabelPanelView.ui
+    src/UI/View/Workspace/RenumberDialog.h
+    src/UI/View/Workspace/RenumberDialog.cpp
+    src/UI/View/Workspace/RenumberDialog.ui
     src/UI/Skin/Default/MainWindow.h
     src/UI/Skin/Default/MainWindow.cpp
     src/UI/Skin/Default/MainWindow.ui

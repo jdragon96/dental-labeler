@@ -29,6 +29,13 @@ const QColor kGingivaColor(0xC9, 0x8B, 0x95);
 const QColor kScanbodyColor(0xA0, 0xAE, 0xC0);
 const QColor kOtherColor(0x8B, 0x96, 0xA1);
 
+// 사용자가 바꾼 색. 화면 스레드에서만 읽고 쓴다
+std::map<int, QColor>& GetMutableOverrides()
+{
+    static std::map<int, QColor> mapOverrides;
+    return mapOverrides;
+}
+
 QColor GetFdiColor(int fdi)
 {
     for (const FdiColor& fdiColor : kFdiColors)
@@ -189,6 +196,23 @@ EJaw GetJaw(int code)
 
 QColor GetColor(int code)
 {
+    const std::map<int, QColor>& mapOverrides = GetColorOverrides();
+    auto it = mapOverrides.find(code);
+    if (it != mapOverrides.end())
+    {
+        return it->second;
+    }
+    // 스캔바디는 그 자리 치아 색(사용자가 바꾼 색 포함)을 옅게 쓴다
+    if (GetClassOf(code) == kClassScanbody && IsFdi(GetFdiOf(code)))
+    {
+        const QColor colFdi = GetColor(MakeCode(kClassTooth, GetFdiOf(code)));
+        return QColor((colFdi.red() + 255) / 2, (colFdi.green() + 255) / 2, (colFdi.blue() + 255) / 2);
+    }
+    return GetDefaultColor(code);
+}
+
+QColor GetDefaultColor(int code)
+{
     if (code == kGingiva)
     {
         return kGingivaColor;
@@ -201,7 +225,7 @@ QColor GetColor(int code)
     }
     if (iClass == kClassScanbody)
     {
-        // 스캔바디는 그 자리 치아 색을 옅게 쓴다. 자리가 없으면 금속 회색
+        // 그 자리 치아 색을 옅게. 자리가 없으면 금속 회색
         if (!IsFdi(iFdi))
         {
             return kScanbodyColor;
@@ -210,6 +234,33 @@ QColor GetColor(int code)
         return QColor((colFdi.red() + 255) / 2, (colFdi.green() + 255) / 2, (colFdi.blue() + 255) / 2);
     }
     return kOtherColor;
+}
+
+void SetColorOverride(int code, const QColor& color)
+{
+    if (color.isValid())
+    {
+        GetMutableOverrides()[code] = color;
+    }
+    else
+    {
+        GetMutableOverrides().erase(code);
+    }
+}
+
+bool HasColorOverride(int code)
+{
+    return GetColorOverrides().count(code) > 0;
+}
+
+const std::map<int, QColor>& GetColorOverrides()
+{
+    return GetMutableOverrides();
+}
+
+void ClearColorOverrides()
+{
+    GetMutableOverrides().clear();
 }
 
 QString GetName(int code)

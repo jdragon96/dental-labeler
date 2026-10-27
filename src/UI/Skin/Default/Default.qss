@@ -52,6 +52,13 @@ QMenu::separator {
     margin: 4px 6px;
 }
 
+/* 오른쪽 클릭 메뉴 맨 위의 라벨 이름 */
+QLabel#menuTitle {
+    padding: 4px 22px 4px 8px;
+    color: #D6DCE2;
+    font-weight: 600;
+}
+
 QToolBar {
     background: #22272D;
     border: none;

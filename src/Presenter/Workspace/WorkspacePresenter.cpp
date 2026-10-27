@@ -12,6 +12,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QSettings>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
@@ -655,6 +656,103 @@ void WorkspacePresenter::IsolateLabel(int label)
         }
     }
     emit LabelStateChanged();
+}
+
+RenumberPlan WorkspacePresenter::PlanArchShift(int firstFdi, int lastFdi, int steps) const
+{
+    const std::vector<int> vecPresent = m_spCase ? m_spCase->m_document.GetPresentCodes() : std::vector<int>();
+    return LabelRenumber::PlanArchShift(m_kpSystem->GetJaw(), firstFdi, lastFdi, steps, vecPresent);
+}
+
+RenumberPlan WorkspacePresenter::PlanSingleRenumber(int fromCode, int toCode, bool swap) const
+{
+    const std::vector<int> vecPresent = m_spCase ? m_spCase->m_document.GetPresentCodes() : std::vector<int>();
+    return LabelRenumber::PlanSingle(fromCode, toCode, swap, vecPresent);
+}
+
+bool WorkspacePresenter::ApplyRenumber(const RenumberPlan& plan)
+{
+    if (!m_spCase || !plan.IsValid() || m_bStrokeActive)
+    {
+        return false;
+    }
+
+    // 정점마다 새 라벨이 다를 수 있어 전후 값을 모두 남긴다
+    LabelDocument& document = m_spCase->m_document;
+    const std::vector<LabelValue>& vecLabels = document.GetLabels();
+    LabelEdit edit;
+    edit.m_strName = QStringLiteral("번호 바꾸기 · %1").arg(plan.Describe(2));
+    for (size_t i = 0; i < vecLabels.size(); ++i)
+    {
+        auto it = plan.m_mapCodes.find(vecLabels[i]);
+        if (it != plan.m_mapCodes.end() && it->second != vecLabels[i])
+        {
+            edit.m_vecIndices.push_back(static_cast<std::uint32_t>(i));
+            edit.m_vecBefore.push_back(vecLabels[i]);
+            edit.m_vecAfter.push_back(static_cast<LabelValue>(it->second));
+        }
+    }
+    if (edit.m_vecIndices.empty())
+    {
+        return false;
+    }
+
+    document.Assign(edit.m_vecIndices, edit.m_vecAfter);
+    m_upHistory->Push(std::move(edit));
+    emit LabelsChanged();
+    emit HistoryChanged();
+    NotifyDirty();
+
+    // 지금 칠하던 대상이 옮겨졌으면 활성 라벨도 따라간다
+    auto itActive = plan.m_mapCodes.find(m_kpSystem->GetActiveLabel());
+    if (itActive != plan.m_mapCodes.end())
+    {
+        m_kpSystem->SetActiveLabel(itActive->second);
+    }
+    emit Message(QStringLiteral("번호를 바꿨다: %1. Ctrl+Z 로 되돌린다.").arg(plan.Describe()));
+    return true;
+}
+
+void WorkspacePresenter::LoadLabelColors()
+{
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("labelColors"));
+    for (const QString& strKey : settings.childKeys())
+    {
+        bool bOk = false;
+        const int iCode = strKey.toInt(&bOk);
+        const QColor color(settings.value(strKey).toString());
+        if (bOk && LabelTable::IsValidCode(iCode) && color.isValid())
+        {
+            LabelTable::SetColorOverride(iCode, color);
+        }
+    }
+    settings.endGroup();
+    emit m_kpObservers->LabelColorsChanged();
+}
+
+void WorkspacePresenter::SetLabelColor(int label, const QColor& color)
+{
+    if (!LabelTable::IsValidCode(label) || label == kUnlabeled)
+    {
+        return;
+    }
+    const bool bReset = !color.isValid() || color == LabelTable::GetDefaultColor(label);
+    LabelTable::SetColorOverride(label, bReset ? QColor() : color);
+
+    QSettings settings;
+    const QString strKey = QStringLiteral("labelColors/%1").arg(label);
+    if (bReset)
+    {
+        settings.remove(strKey);
+    }
+    else
+    {
+        settings.setValue(strKey, color.name(QColor::HexRgb));
+    }
+    emit m_kpObservers->LabelColorsChanged();
+    emit Message(bReset ? QStringLiteral("%1 을 기본 색으로 되돌렸다.").arg(LabelTable::GetName(label))
+                        : QStringLiteral("%1 색을 바꿨다.").arg(LabelTable::GetName(label)));
 }
 
 bool WorkspacePresenter::HasCase() const

@@ -8,6 +8,7 @@
 #include "Presenter/Workspace/WorkspacePresenter.h"
 #include "UI/Common/Control/OdontogramWidget.h"
 #include "UI/Common/Theme/IconFactory.h"
+#include "UI/View/Workspace/LabelMenu.h"
 
 #include <QButtonGroup>
 #include <QHeaderView>
@@ -153,6 +154,14 @@ LabelPanelView::LabelPanelView(Observers* kpObservers, SystemStatus* kpSystem, W
         RefreshLabels();
     });
 
+    connect(m_kpObservers, &Observers::LabelColorsChanged, this, [this] {
+        RebuildTree();
+        RefreshLabels();
+        m_pOdontogram->update();
+    });
+
+    ui->treeLabels->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->treeLabels, &QTreeWidget::customContextMenuRequested, this, &LabelPanelView::OnTreeContextMenu);
     connect(ui->treeLabels, &QTreeWidget::itemClicked, this, &LabelPanelView::OnTreeItemClicked);
     connect(ui->treeLabels, &QTreeWidget::itemDoubleClicked, this, &LabelPanelView::OnTreeItemDoubleClicked);
     connect(m_pOdontogram, &OdontogramWidget::ToothClicked, m_kpPresenter, &WorkspacePresenter::SelectFdi);
@@ -459,7 +468,7 @@ void LabelPanelView::OnToothContextMenu(int fdi, const QPoint& globalPos)
 {
     const EToothState eCurrent = m_kpPresenter->GetLabelRow(GetToothCode(fdi)).m_eState;
     QMenu menu(this);
-    menu.addSection(QStringLiteral("%1 · %2").arg(fdi).arg(LabelTable::GetFdiName(fdi)));
+    LabelMenu::AddTitle(menu, GetToothCode(fdi), m_kpPresenter);
     for (EToothState eState : kStates)
     {
         QAction* pAction = menu.addAction(LabelTable::GetToothStateName(eState));
@@ -467,11 +476,42 @@ void LabelPanelView::OnToothContextMenu(int fdi, const QPoint& globalPos)
         pAction->setChecked(eState == eCurrent);
         pAction->setData(static_cast<int>(eState));
     }
+    menu.addSeparator();
+    // 그 자리의 치아 · 스캔바디 중 칠한 것마다 번호 바꾸기
+    for (const LabelTable::ClassInfo& info : LabelTable::GetClasses())
+    {
+        if (info.m_eFdiUse != LabelTable::EFdiUse::NONE)
+        {
+            LabelMenu::AddRenumberActions(menu, LabelTable::MakeCode(info.m_iValue, fdi), m_kpSystem, m_kpPresenter, this);
+        }
+    }
+    menu.addSeparator();
+    LabelMenu::AddColorActions(menu, GetToothCode(fdi), m_kpPresenter, this);
     QAction* pChosen = menu.exec(globalPos);
-    if (pChosen != nullptr)
+    if (pChosen != nullptr && pChosen->data().isValid())
     {
         ChangeToothState(fdi, static_cast<EToothState>(pChosen->data().toInt()));
     }
+}
+
+void LabelPanelView::OnTreeContextMenu(const QPoint& pos)
+{
+    QTreeWidgetItem* pItem = ui->treeLabels->itemAt(pos);
+    if (pItem == nullptr || !pItem->data(COLUMN_LABEL, kRoleLabel).isValid())
+    {
+        return;
+    }
+    const int iLabel = pItem->data(COLUMN_LABEL, kRoleLabel).toInt();
+    if (iLabel == kUnlabeled)
+    {
+        return;
+    }
+    QMenu menu(this);
+    LabelMenu::AddTitle(menu, iLabel, m_kpPresenter);
+    LabelMenu::AddRenumberActions(menu, iLabel, m_kpSystem, m_kpPresenter, this);
+    menu.addSeparator();
+    LabelMenu::AddColorActions(menu, iLabel, m_kpPresenter, this);
+    menu.exec(ui->treeLabels->viewport()->mapToGlobal(pos));
 }
 
 void LabelPanelView::ChangeToothState(int fdi, EToothState state)

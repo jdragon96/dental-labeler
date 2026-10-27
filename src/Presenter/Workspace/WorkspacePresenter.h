@@ -1,9 +1,11 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Document/LabelRenumber.h"
 #include "Interface/IPaintStrategy.h"
 #include "Presenter/Workspace/WorkspaceTypes.h"
 
+#include <QColor>
 #include <QDateTime>
 #include <QFutureWatcher>
 #include <QMatrix4x4>
@@ -71,6 +73,16 @@ public:
     void ToggleHidden(int label);
     void ShowAllLabels();
     void IsolateLabel(int label);
+
+    // 번호 바꾸기 (DL-21). 계획을 보여 준 뒤 적용한다. 적용은 실행 취소 한 단계다
+    RenumberPlan PlanArchShift(int firstFdi, int lastFdi, int steps) const;
+    RenumberPlan PlanSingleRenumber(int fromCode, int toCode, bool swap) const;
+    bool ApplyRenumber(const RenumberPlan& plan);
+
+    // 라벨 색 (사용자 설정에 저장. 라벨 파일과는 상관없다)
+    void LoadLabelColors();
+    // 잘못된 색(QColor())이면 기본 색으로 되돌린다
+    void SetLabelColor(int label, const QColor& color);
 
 public:
     bool HasCase() const;

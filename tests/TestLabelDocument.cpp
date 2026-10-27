@@ -2,6 +2,7 @@
 #include "Document/EditHistory.h"
 #include "Document/LabelDocument.h"
 #include "Document/LabelFile.h"
+#include "Document/LabelRenumber.h"
 #include "Document/Mesh.h"
 #include "Document/PlyReader.h"
 
@@ -273,6 +274,68 @@ private slots:
         QCOMPARE(LabelTable::GuessJawFromFileName(QStringLiteral("case_0001_lower.ply")), EJaw::LOWER);
         QCOMPARE(LabelTable::GuessJawFromFileName(QStringLiteral("P12-Maxilla.ply")), EJaw::UPPER);
         QCOMPARE(LabelTable::GuessJawFromFileName(QStringLiteral("scan_0193.ply")), EJaw::UNKNOWN);
+    }
+
+    void RenumberArchShift()
+    {
+        // 하악 48 … 41, 31 이 칠해져 있고 47 자리에 스캔바디가 있다
+        const std::vector<int> vecPresent = { 0, 131, 141, 142, 143, 144, 145, 146, 147, 148, 247 };
+
+        // 48 … 42 를 한 칸 뒤로: 48 → 47 … 42 → 41. 41 은 옮기지 않으므로 42 와 합쳐진다고 알린다
+        RenumberPlan plan = LabelRenumber::PlanArchShift(EJaw::LOWER, 48, 42, 1, vecPresent);
+        QVERIFY2(plan.IsValid(), qPrintable(plan.m_strError));
+        QCOMPARE(plan.m_mapCodes.at(148), 147);
+        QCOMPARE(plan.m_mapCodes.at(142), 141);
+        QCOMPARE(plan.m_mapCodes.at(247), 246);
+        QCOMPARE(static_cast<int>(plan.m_mapCodes.size()), 8);
+        QCOMPARE(plan.m_lstWarnings.size(), 1);
+        QVERIFY(plan.m_lstWarnings.first().contains(QStringLiteral("41")));
+
+        // 정중선을 넘어 41 → 31, 31 → 32
+        plan = LabelRenumber::PlanArchShift(EJaw::LOWER, 41, 31, 1, vecPresent);
+        QCOMPARE(plan.m_mapCodes.at(141), 131);
+        QCOMPARE(plan.m_mapCodes.at(131), 132);
+        // 미리 보기는 치식 순서로 늘어놓는다
+        QCOMPARE(plan.GetOrderedPairs().front().first, 141);
+        QCOMPARE(plan.Describe(), QStringLiteral("41 → 31 · 31 → 32"));
+        QVERIFY(plan.m_lstWarnings.isEmpty());
+
+        // 48 을 앞으로 밀 자리는 없다
+        plan = LabelRenumber::PlanArchShift(EJaw::LOWER, 48, 47, -1, vecPresent);
+        QVERIFY(!plan.IsValid());
+        QVERIFY(plan.m_strError.contains(QStringLiteral("자리가 없다")));
+
+        // 다른 턱 번호는 받지 않는다
+        QVERIFY(!LabelRenumber::PlanArchShift(EJaw::LOWER, 18, 11, 1, vecPresent).IsValid());
+    }
+
+    void RenumberSingle()
+    {
+        const std::vector<int> vecPresent = { 0, 136, 137 };
+        RenumberPlan plan = LabelRenumber::PlanSingle(136, 137, true, vecPresent);
+        QCOMPARE(plan.m_mapCodes.at(136), 137);
+        QCOMPARE(plan.m_mapCodes.at(137), 136);
+        QVERIFY(plan.m_lstWarnings.isEmpty());
+
+        plan = LabelRenumber::PlanSingle(136, 137, false, vecPresent);
+        QCOMPARE(static_cast<int>(plan.m_mapCodes.size()), 1);
+        QCOMPARE(plan.m_lstWarnings.size(), 1);
+
+        QVERIFY(!LabelRenumber::PlanSingle(135, 136, true, vecPresent).IsValid());
+        QVERIFY(!LabelRenumber::PlanSingle(136, 136, true, vecPresent).IsValid());
+    }
+
+    void ColorOverrides()
+    {
+        const QColor colDefault = LabelTable::GetColor(146);
+        LabelTable::SetColorOverride(146, QColor(255, 0, 0));
+        QCOMPARE(LabelTable::GetColor(146), QColor(255, 0, 0));
+        QVERIFY(LabelTable::HasColorOverride(146));
+        // 그 자리 스캔바디는 바뀐 치아 색을 옅게 쓴다
+        QCOMPARE(LabelTable::GetColor(246), QColor(255, 127, 127));
+        LabelTable::SetColorOverride(146, QColor());
+        QCOMPARE(LabelTable::GetColor(146), colDefault);
+        QVERIFY(!LabelTable::HasColorOverride(146));
     }
 
     void LabelCodes()
